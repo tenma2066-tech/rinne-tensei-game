@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>輪廻転生ランダムリセマラゲーム | 無料ブラウザゲーム</title>
+    <meta name="description" content="寿命を削って国・性別・顔・家庭・職業をリセマラし、最高の人生ランクを狙う無料ブラウザゲーム。インストール不要でスマホでもPCでも遊べます。">
+    <meta name="keywords" content="輪廻転生ゲーム, リセマラゲーム, ガチャゲーム, 無料ブラウザゲーム, 暇つぶしゲーム">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="canonical" href="https://tenma2066-tech.github.io/rinne-tensei-game/">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="ja_JP">
+    <meta property="og:url" content="https://tenma2066-tech.github.io/rinne-tensei-game/">
+    <meta property="og:title" content="輪廻転生ランダムリセマラゲーム">
+    <meta property="og:description" content="寿命を削って理想の初期ステータスと職業を手に入れろ。無料で遊べる輪廻転生リセマラブラウザゲーム。">
+    <meta property="og:site_name" content="輪廻転生ランダムリセマラゲーム">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="輪廻転生ランダムリセマラゲーム">
+    <meta name="twitter:description" content="寿命を削って理想の初期ステータスと職業を手に入れろ。無料ブラウザゲーム。">
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "VideoGame",
+        "name": "輪廻転生ランダムリセマラゲーム",
+        "url": "https://tenma2066-tech.github.io/rinne-tensei-game/",
+        "description": "寿命を削って国・性別・顔・家庭・職業をリセマラし、最高の人生ランクを狙う無料ブラウザゲーム。",
+        "applicationCategory": "Game",
+        "operatingSystem": "Web Browser",
+        "inLanguage": "ja",
+        "genre": ["ブラウザゲーム", "ガチャ", "リセマラ"]
+    }
+    </script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --text-color: #f8fafc;
+            --accent-color: #fbbf24;
+            --accent-hover: #f59e0b;
+            --danger-color: #ef4444;
+            --danger-hover: #dc2626;
+            --panel-bg: rgba(30, 41, 59, 0.8);
+            --border-color: #334155;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+        }
+
+        #app {
+            width: 100%;
+            max-width: 600px;
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* 天国の案内人 */
+        .guide-character {
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(251, 191, 36, 0.05));
+            border: 1px solid rgba(251, 191, 36, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            animation: float 3s ease-in-out infinite;
+            transition: all 0.3s ease;
+        }
+
+        .guide-icon {
+            font-size: 2.5rem;
+            filter: drop-shadow(0 0 5px rgba(251, 191, 36, 0.5));
+        }
+
+        .guide-text {
+            font-size: 0.95rem;
+            line-height: 1.5;
+            color: #fef3c7;
+            font-style: italic;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0px); }
+        }
+
+        /* ステータスバー */
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--panel-bg);
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .lifespan { font-size: 1.2rem; font-weight: bold; }
+        .lifespan-value {
+            font-size: 1.8rem;
+            color: var(--accent-color);
+            text-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+            transition: color 0.3s ease;
+        }
+        .lifespan-danger {
+            color: var(--danger-color);
+            text-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+            animation: pulse 0.8s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.08); color: #ff0000; }
+            100% { transform: scale(1); }
+        }
+
+        /* ガチャパネル */
+        .gacha-panel {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 30px 20px;
+            text-align: center;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .step-title { font-size: 1.5rem; margin-bottom: 10px; color: #cbd5e1; }
+
+        .gacha-result-area {
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+        }
+
+        .rolling-text {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #fff;
+            filter: blur(1px);
+            animation: shake 0.1s infinite;
+            letter-spacing: 2px;
+        }
+
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        .result-rank {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding: 4px 15px;
+            border-radius: 20px;
+            background-color: rgba(255, 255, 255, 0.1);
+            transform: scale(0);
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes popIn {
+            to { transform: scale(1); }
+        }
+
+        /* レアリティ演出 */
+        .rank-PLR { 
+            color: #fff; 
+            background: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #8b00ff);
+            background-size: 400% 400%;
+            animation: popIn 0.5s forwards, rainbow 3s ease infinite;
+            border: none;
+            box-shadow: 0 0 20px rgba(255,255,255,0.8);
+        }
+        @keyframes rainbow { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+        .rank-SSR { color: #fbbf24; text-shadow: 0 0 15px rgba(251, 191, 36, 0.8); border: 2px solid #fbbf24; }
+        .rank-SR { color: #a78bfa; text-shadow: 0 0 10px rgba(167, 139, 250, 0.5); border: 1px solid #a78bfa; }
+        .rank-R { color: #60a5fa; border: 1px solid #60a5fa; }
+        .rank-N { color: #94a3b8; border: 1px solid #94a3b8; }
+        .rank-none { color: #fff; border: 1px solid #fff; } /* 性別用 */
+        
+        .result-name {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #fff;
+            opacity: 0;
+            animation: fadeIn 0.5s 0.2s forwards;
+        }
+
+        .result-text {
+            font-size: 0.95rem;
+            color: #cbd5e1;
+            line-height: 1.5;
+            opacity: 0;
+            animation: fadeIn 0.5s 0.4s forwards;
+        }
+
+        /* ガチャ演出時のフラッシュ */
+        .flash-effect {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .flash-PLR { animation: flashRainbow 1s ease-out; }
+        .flash-SSR { animation: flashGold 0.8s ease-out; }
+        .flash-normal { animation: flashWhite 0.5s ease-out; }
+
+        @keyframes flashRainbow {
+            0% { opacity: 1; background: #fff; }
+            50% { background: #f472b6; opacity: 0.8; }
+            100% { opacity: 0; }
+        }
+        @keyframes flashGold {
+            0% { opacity: 0.8; background: #fbbf24; }
+            100% { opacity: 0; }
+        }
+        @keyframes flashWhite {
+            0% { opacity: 0.5; background: #fff; }
+            100% { opacity: 0; }
+        }
+
+        .btn-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 15px 20px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .btn-draw {
+            background: linear-gradient(to bottom, #fbbf24, #f59e0b);
+            color: #000;
+            box-shadow: 0 4px 0 #b45309;
+        }
+        .btn-draw:hover:not(:disabled) { transform: translateY(2px); box-shadow: 0 2px 0 #b45309; }
+        .btn-draw:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 0 0 #b45309; }
+
+        .btn-next {
+            background: linear-gradient(to bottom, #3b82f6, #2563eb);
+            color: white;
+            box-shadow: 0 4px 0 #1e3a8a;
+        }
+        .btn-next:hover:not(:disabled) { transform: translateY(2px); box-shadow: 0 2px 0 #1e3a8a; }
+
+        .free-text { display: block; font-size: 0.8rem; margin-top: 5px; font-weight: normal; }
+
+        /* リザルト画面 */
+        .screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 80vh;
+            text-align: center;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .title {
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            color: var(--accent-color);
+            text-shadow: 0 0 20px rgba(251, 191, 36, 0.4);
+            letter-spacing: 2px;
+        }
+
+        .subtitle { font-size: 1.1rem; color: #94a3b8; margin-bottom: 40px; }
+
+        .story-text {
+            font-size: 1.15rem;
+            line-height: 1.8;
+            margin-bottom: 20px;
+            background: var(--panel-bg);
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            text-align: left;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .highlight { color: var(--accent-color); font-weight: bold; }
+        
+        .title-badge {
+            display: inline-block;
+            background: linear-gradient(45deg, #ef4444, #f59e0b);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+            transform: rotate(-2deg);
+        }
+
+        .final-rank-box { margin-top: 10px; margin-bottom: 30px; }
+        .final-rank-label { font-size: 1.2rem; color: #cbd5e1; }
+        .final-rank-value {
+            font-size: 4.5rem;
+            font-weight: bold;
+            margin-top: 5px;
+            text-shadow: 0 0 30px rgba(251, 191, 36, 0.5);
+            animation: popIn 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .rank-SS { color: #f472b6; text-shadow: 0 0 20px #f472b6; }
+        .rank-S { color: #fbbf24; text-shadow: 0 0 20px #fbbf24; }
+        .rank-A { color: #34d399; }
+        .rank-B { color: #60a5fa; }
+        .rank-C { color: #a78bfa; }
+        .rank-D { color: #94a3b8; }
+        .rank-E { color: #ef4444; }
+
+        .gameover-text {
+            font-size: 3.5rem;
+            color: var(--danger-color);
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+            letter-spacing: 5px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeIn 0.3s ease-out forwards; }
+
+        /* 現在のステータス一覧 (5項目対応) */
+        .current-status {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 5px;
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .current-status span {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        .current-status strong {
+            color: #fff;
+            margin-top: 4px;
+            font-size: 0.8rem;
+            word-break: keep-all;
+        }
+    </style>
+</head>
+<body>
+
+<main id="app" aria-live="polite"></main>
+<noscript>
+    <section class="screen">
+        <h1 class="title">輪廻転生ランダムリセマラゲーム</h1>
+        <p class="subtitle">このゲームを遊ぶにはJavaScriptを有効にしてください。</p>
+    </section>
+</noscript>
+
+<script>
+    // --- 拡張版ガチャデータ定義 ---
+    const countries = {
+        PLR: ["モナコ", "スイス", "ルクセンブルク", "シンガポール", "リヒテンシュタイン", "サンマリノ", "アンドラ", "カタール", "UAE", "ブルネイ", "シーランド公国(幻)"],
+        SSR: ["日本", "アメリカ", "ノルウェー", "オーストラリア", "ドイツ", "スウェーデン", "デンマーク", "オランダ", "カナダ", "ニュージーランド", "フィンランド", "アイスランド", "アイルランド", "オーストリア", "ベルギー", "イギリス", "フランス"],
+        SR: ["韓国", "イタリア", "スペイン", "台湾", "ポルトガル", "ギリシャ", "チェコ", "スロバキア", "クロアチア", "エストニア", "ラトビア", "リトアニア", "スロベニア", "ポーランド", "ハンガリー", "キプロス", "マルタ", "イスラエル", "チリ", "ウルグアイ", "マレーシア"],
+        R: ["ブラジル", "インド", "タイ", "南アフリカ", "メキシコ", "アルゼンチン", "トルコ", "インドネシア", "フィリピン", "ベトナム", "エジプト", "サウジアラビア", "コロンビア", "ペルー", "イラン", "モロッコ", "ケニア", "ナイジェリア", "ガーナ", "チュニジア", "キューバ", "ジャマイカ", "モンゴル", "カザフスタン", "ウズベキスタン", "スリランカ", "バングラデシュ", "ネパール", "カンボジア", "ミャンマー", "ラオス", "セネガル", "カメルーン", "コートジボワール", "タンザニア", "ウガンダ", "アンゴラ", "ザンビア", "ボツワナ", "ナミビア", "エクアドル", "ボリビア", "パラグアイ", "ベネズエラ", "ホンジュラス", "グアテマラ", "コスタリカ", "パナマ", "ドミニカ共和国", "フィジー", "パプアニューギニア", "ジョージア", "アルメニア", "アゼルバイジャン", "セルビア", "ルーマニア", "ブルガリア", "アルバニア", "北マケドニア", "ボスニア・ヘルツェゴビナ"],
+        N: ["北朝鮮", "ソマリア", "アフガニスタン", "イエメン", "南スーダン", "シリア", "ハイチ", "中央アフリカ", "コンゴ民主共和国", "ブルンジ", "チャド", "マリ", "ニジェール", "ブルキナファソ", "スーダン", "リベリア", "ジンバブエ", "エリトリア", "モザンビーク", "マダガスカル", "マラウイ", "ギニア", "シエラレオネ", "トーゴ", "レソト", "ルワンダ", "モーリタニア", "ガンビア", "ギニアビサウ", "コモロ", "ジブチ", "赤道ギニア", "サントメ・プリンシペ", "パレスチナ", "イラク", "リビア", "レバノン", "タジキスタン", "キルギス", "トルクメニスタン"]
+    };
+
+    // 職業100種
+    const jobs = {
+        PLR: [ // 10種
+            "宇宙飛行士", "一国の国家元首", "ノーベル賞受賞学者", "世界的IT企業CEO", "トップアスリート(五輪金)", 
+            "石油王", "天才ハッカー", "伝説の映画監督", "億り人(個人投資家)", "国連事務総長"
+        ],
+        SSR: [ // 20種
+            "医師(外科医)", "パイロット", "弁護士", "AIリサーチャー", "人気YouTuber", 
+            "アイドルグループのセンター", "ベンチャー起業家", "大学教授", "外資系コンサルタント", "総合商社マン", 
+            "建築家", "トップ俳優", "ファンドマネージャー", "高級フレンチシェフ", "ベストセラー作家", 
+            "音楽プロデューサー", "国会議員", "裁判官", "ゲームクリエイター", "宇宙開発エンジニア"
+        ],
+        SR: [ // 25種
+            "地方公務員", "小学校教師", "看護師", "薬剤師", "消防士", 
+            "警察官", "Webデザイナー", "システムエンジニア", "理学療法士", "保育士", 
+            "歯科医師", "獣医師", "出版社編集者", "管理栄養士", "メガバンク銀行員", 
+            "臨床心理士", "航空管制官", "イラストレーター", "テレビ局アナウンサー", "一級自動車整備士", 
+            "測量士", "カリスマ美容師", "宮大工", "高級寿司職人", "心理カウンセラー"
+        ],
+        R: [ // 25種
+            "ルート営業職", "一般事務職", "経理担当", "スーパーの店長", "長距離トラック運転手", 
+            "コールセンター業務", "ウェブライター", "アパレル店員", "カフェ店員", "工場ライン作業員", 
+            "農業従事者", "漁師", "建設現場作業員", "不動産仲介業", "介護職員", 
+            "ビル清掃員", "タクシードライバー", "施設警備員", "ホテルマン", "デパート美容部員", 
+            "書店員", "宅配便配達員", "フリーター(バイト3つ)", "派遣社員", "家事手伝い"
+        ],
+        N: [ // 20種
+            "ニート", "窓際族", "借金取り", "情報商材屋(自称コンサル)", "地下アイドル", 
+            "売れないバンドマン", "万年下積み芸人", "日雇い労働者", "ブラック企業戦士", "自称・小説家", 
+            "炎上系配信者", "パチプロ", "転売ヤー", "怪しい壺を売る人", "永遠の浪人生", 
+            "ヒモ", "ポエム系インフルエンサー", "深夜コンビニバイト", "治験ボランティア", "記憶喪失の放浪者"
+        ]
+    };
+
+    const gachaData = {
+        country: [
+            { rank: 'PLR', prob: 2, point: 50, items: countries.PLR, text: "圧倒的な経済力と安全性を誇る、奇跡のような環境です！" },
+            { rank: 'SSR', prob: 8, point: 40, items: countries.SSR, text: "インフラも整った文句なしの先進国！人生イージーモードの予感。" },
+            { rank: 'SR', prob: 15, point: 30, items: countries.SR, text: "文化も豊かで住みやすい、安定した国です。" },
+            { rank: 'R', prob: 35, point: 20, items: countries.R, text: "成長著しいですが、格差や混沌も味わえるエキサイティングな国です。" },
+            { rank: 'N', prob: 40, point: 0, items: countries.N, text: "サバイバル能力が試される超ハードモードな環境です……死なないで。" }
+        ],
+        gender: [
+            { rank: '-', prob: 50, point: 0, items: ["男"], text: "男性としてこの世に生を受けます。" },
+            { rank: '-', prob: 50, point: 0, items: ["女"], text: "女性としてこの世に生を受けます。" }
+        ],
+        face_male: [
+            { rank: 'SSR', prob: 5, point: 40, items: ["国宝級イケメン", "世界が嫉妬する美貌", "歩く彫刻"], text: "存在が罪。息をするだけでモテます。" },
+            { rank: 'SR', prob: 15, point: 30, items: ["爽やかスポーツマン", "クール系美男子", "知的エリート顔"], text: "学生時代は常にカースト上位確定です。" },
+            { rank: 'R', prob: 55, point: 10, items: ["クラスに3人はいる顔", "フツメン", "清潔感だけはある男", "村人Aの顔"], text: "良くも悪くも目立たない、平和な顔立ちです。" },
+            { rank: 'N', prob: 25, point: 0, items: ["前衛的な芸術作品のような顔", "初対面で警戒される顔", "進化の過程を思わせる顔", "指名手配犯に似ている顔"], text: "顔以外の全て（トーク力と財力）で勝負する人生になります。" }
+        ],
+        face_female: [
+            { rank: 'SSR', prob: 5, point: 40, items: ["1000年に1人の美少女", "国民的アイドル級", "絶世の美女"], text: "人生のあらゆる扉が顔パスで開きます。" },
+            { rank: 'SR', prob: 20, point: 25, items: ["学年マドンナ", "愛嬌たっぷりの小動物系", "清楚系お嬢様顔"], text: "かなり恵まれた容姿。貢がれる人生です。" },
+            { rank: 'R', prob: 55, point: 10, items: ["メイク次第で化ける普通の顔", "量産型モブ顔", "フツメン", "親しみやすい顔"], text: "努力と自己プロデュース次第でどうにでもなる容姿です。" },
+            { rank: 'N', prob: 20, point: 0, items: ["愛嬌だけで乗り切る必要がある顔", "強烈な個性を放つ顔", "呪術師のような顔", "なぜか常に怒っているように見える顔"], text: "強靭なメンタルと卓越したユーモアセンスが求められます。" }
+        ],
+        family: [
+            { rank: 'PLR', prob: 2, point: 50, items: ["世界的IT企業の社長一族", "王族・貴族の末裔", "国家予算レベルの資産家"], text: "生まれた瞬間から人生アガリです。働く必要はありません。" },
+            { rank: 'SSR', prob: 8, point: 40, items: ["代々続く名家", "巨大病院の院長一族", "アラブの石油王の家系"], text: "お金に困ることは一生ないでしょう。英才教育確定です。" },
+            { rank: 'SR', prob: 20, point: 20, items: ["裕福な共働きエリート家庭", "地元の大地主", "成功した起業家の家"], text: "欲しいものは大体買ってもらえる、恵まれた環境です。" },
+            { rank: 'R', prob: 50, point: 10, items: ["ごく一般的なサラリーマン家庭", "地方の公務員家庭", "小さな自営業の家庭"], text: "平穏で一般的な、温かい（かもしれない）家庭です。" },
+            { rank: 'N', prob: 20, point: 0, items: ["毎日借金取りが来る家", "その日暮らしの極貧家庭", "屋根に穴が開いている家", "親が蒸発した家"], text: "スタートダッシュで大きく躓く、過酷なサバイバル環境です。" }
+        ],
+        job: [
+            { rank: 'PLR', prob: 2, point: 50, items: jobs.PLR, text: "歴史に名を残すレベルの超絶エリート職です。世界の頂点。" },
+            { rank: 'SSR', prob: 8, point: 40, items: jobs.SSR, text: "高収入・高ステータス！誰もが羨む花形職業です。" },
+            { rank: 'SR', prob: 20, point: 30, items: jobs.SR, text: "安定感抜群の専門職。食いっぱぐれることはありません。" },
+            { rank: 'R', prob: 40, point: 20, items: jobs.R, text: "社会を支える一般的な職業です。堅実に生きましょう。" },
+            { rank: 'N', prob: 30, point: 0, items: jobs.N, text: "不安定、過酷、あるいは社会のレールから外れた生き方です。" }
+        ]
+    };
+
+    const stepsInfo = [
+        { id: 'country', name: '国ガチャ' },
+        { id: 'gender', name: '性別ガチャ' },
+        { id: 'face', name: '顔ガチャ' },
+        { id: 'family', name: '家庭ガチャ' },
+        { id: 'job', name: '職業ガチャ' }
+    ];
+
+    // --- 状態管理 ---
+    let state = getInitialState();
+
+    function getInitialState() {
+        return {
+            screen: 'title', // title, gacha, gameover, result
+            lifespan: 100,
+            stepIndex: 0,
+            results: { country: null, gender: null, face: null, family: null, job: null },
+            freeRolls: { country: 2, gender: 1, face: 1, family: 1, job: 1 },
+            currentRollResult: null,
+            isRolling: false
+        };
+    }
+
+    // --- ロジック ---
+    function roll(typeKey) {
+        const data = gachaData[typeKey];
+        const rand = Math.random() * 100;
+        let sum = 0;
+        for (const item of data) {
+            sum += item.prob;
+            if (rand <= sum) {
+                const resultName = item.items[Math.floor(Math.random() * item.items.length)];
+                return { rank: item.rank, name: resultName, point: item.point, text: item.text };
+            }
+        }
+        return { rank: data[0].rank, name: data[0].items[0], point: data[0].point, text: data[0].text }; // fallback
+    }
+
+    function getRandomName(typeKey) {
+        const data = gachaData[typeKey];
+        const randomRank = data[Math.floor(Math.random() * data.length)];
+        return randomRank.items[Math.floor(Math.random() * randomRank.items.length)];
+    }
+
+    function handleDraw() {
+        if (state.isRolling) return;
+
+        const step = stepsInfo[state.stepIndex].id;
+        
+        if (state.freeRolls[step] > 0) {
+            state.freeRolls[step]--;
+        } else {
+            state.lifespan -= 20;
+        }
+
+        if (state.lifespan <= 0) {
+            state.lifespan = 0;
+            state.screen = 'gameover';
+            render();
+            return;
+        }
+
+        state.isRolling = true;
+        state.currentRollResult = null;
+        render();
+
+        let typeKey = step;
+        if (step === 'face') {
+            typeKey = state.results.gender.name === '男' ? 'face_male' : 'face_female';
+        }
+
+        const resultArea = document.getElementById('result-area');
+        resultArea.innerHTML = `<div class="rolling-text">???</div>`;
+        const textElement = resultArea.querySelector('.rolling-text');
+        
+        let rollCount = 0;
+        const maxRolls = 20; 
+        
+        const rollInterval = setInterval(() => {
+            textElement.textContent = getRandomName(typeKey);
+            rollCount++;
+            
+            if (rollCount >= maxRolls) {
+                clearInterval(rollInterval);
+                state.currentRollResult = roll(typeKey);
+                state.isRolling = false;
+                render();
+            }
+        }, 50); 
+    }
+
+    function handleNext() {
+        if (state.isRolling) return;
+        const step = stepsInfo[state.stepIndex].id;
+        state.results[step] = state.currentRollResult;
+        state.currentRollResult = null;
+
+        if (state.stepIndex < stepsInfo.length - 1) {
+            state.stepIndex++;
+        } else {
+            state.screen = 'result';
+        }
+        render();
+    }
+
+    function startGame() {
+        state = getInitialState();
+        state.screen = 'gacha';
+        render();
+    }
+
+    function calculateFinalScore() {
+        let score = state.lifespan;
+        for (const key in state.results) {
+            if (state.results[key]) score += state.results[key].point;
+        }
+        return score;
+    }
+
+    function getRank(score) {
+        if (state.lifespan <= 0 || score <= 49) return 'E';
+        if (score >= 230) return 'SS'; // 職業分しきい値を調整
+        if (score >= 190) return 'S';
+        if (score >= 150) return 'A';
+        if (score >= 110) return 'B';
+        if (score >= 70) return 'C';
+        if (score >= 50) return 'D';
+        return 'E';
+    }
+
+    function getGuideMessage() {
+        if (state.screen === 'title') return "「あなたの寿命は100年。寿命と引き換えに、運命をやり直すことができますよ……フフフ。」";
+        
+        if (state.screen === 'gacha') {
+            if (state.isRolling) return "「さあ、何が出るでしょうか……！」";
+            
+            if (state.currentRollResult) {
+                const rank = state.currentRollResult.rank;
+                if (rank === 'PLR') return "「素晴らしい！！これ以上の結果を求めるなんて、強欲にも程がありますよ？」";
+                if (rank === 'SSR') return "「おおっ！かなりの豪運ですね。ここで確定しても良いのでは？」";
+                if (rank === 'N') return "「うわぁ……これは酷い。さすがに寿命を払ってでも引き直した方が良いかと……。」";
+                if (state.lifespan === 20) return "「おやおや、次引き直すと寿命が尽きて死にますよ？賭けますか？」";
+                return "「あと20年寿命を払えば、もっと良い結果になるかもしれませんよ？」";
+            } else {
+                if (state.lifespan === 100) return "「さあ、運命のダイスを振りましょう。」";
+                if (state.lifespan <= 40) return "「だいぶ寿命が減ってきましたね。計画的に行きましょう。」";
+                return "「後悔のない選択をしてくださいね。」";
+            }
+        }
+        return "「……」";
+    }
+
+    function getSpecialTitle(r) {
+        const ranks = [r.country.rank, r.face.rank, r.family.rank, r.job.rank];
+        const isAllPlrSsr = ranks.every(rank => rank === 'PLR' || rank === 'SSR');
+        const isAllN = ranks.every(rank => rank === 'N');
+        
+        if (isAllPlrSsr) return "神に愛されし者";
+        if (isAllN) return "不憫すぎる魂";
+        
+        if (r.family.rank === 'PLR' && r.job.name === "ニート") return "高等遊民";
+        if (r.family.rank === 'N' && r.job.rank === 'PLR') return "成り上がりの英雄";
+        if (r.face.rank === 'N' && r.job.name === "アイドルグループのセンター") return "奇跡のセンター";
+        
+        if (state.lifespan <= 20 && getRank(calculateFinalScore()) >= 'A') return "背水の陣の覇者";
+        if (state.lifespan === 100) return "妥協の達人";
+        
+        if (r.country.name === "北朝鮮" && r.family.rank === 'PLR') return "将軍様の一族";
+        if (r.country.name === "シーランド公国(幻)") return "幻の国民";
+
+        return null;
+    }
+
+    // --- 描画処理 ---
+    const appElement = document.getElementById('app');
+
+    function render() {
+        appElement.innerHTML = ''; 
+
+        if (state.screen === 'title') {
+            appElement.innerHTML = `
+                <div class="screen">
+                    <h1 class="title">輪廻転生<br>ランダムリセマラ</h1>
+                    <p class="subtitle">寿命を削って、理想の初期ステータスと職業を手に入れろ</p>
+                    <div class="guide-character" style="margin-bottom: 40px; justify-content: center;">
+                        <span class="guide-icon">👼</span>
+                        <p class="guide-text">${getGuideMessage()}</p>
+                    </div>
+                    <button class="btn btn-draw" onclick="startGame()" style="width: 200px; font-size: 1.2rem;">転生を開始する</button>
+                </div>
+            `;
+        } 
+        else if (state.screen === 'gacha') {
+            const stepId = stepsInfo[state.stepIndex].id;
+            const stepName = stepsInfo[state.stepIndex].name;
+            const freeCount = state.freeRolls[stepId];
+            
+            const btnText = freeCount > 0 
+                ? `ガチャを引く <span class="free-text">（無料：残り${freeCount}回）</span>` 
+                : `引き直す <span class="free-text">（寿命20年消費）</span>`;
+            
+            const isDanger = state.lifespan <= 20 && freeCount === 0;
+
+            const currentStatusHtml = `
+                <div class="current-status">
+                    <span>国<strong>${state.results.country ? state.results.country.name : '???'}</strong></span>
+                    <span>性別<strong>${state.results.gender ? state.results.gender.name : '???'}</strong></span>
+                    <span>顔<strong>${state.results.face ? state.results.face.name : '???'}</strong></span>
+                    <span>家庭<strong>${state.results.family ? state.results.family.name : '???'}</strong></span>
+                    <span>職業<strong>${state.results.job ? state.results.job.name : '???'}</strong></span>
+                </div>
+            `;
+
+            let flashClass = '';
+            if (state.currentRollResult && !state.isRolling) {
+                const r = state.currentRollResult.rank;
+                if (r === 'PLR') flashClass = 'flash-PLR';
+                else if (r === 'SSR') flashClass = 'flash-SSR';
+                else flashClass = 'flash-normal';
+            }
+
+            appElement.innerHTML = `
+                <div class="guide-character">
+                    <span class="guide-icon">👼</span>
+                    <p class="guide-text">${getGuideMessage()}</p>
+                </div>
+                
+                <div class="status-bar">
+                    <span class="lifespan">残り寿命</span>
+                    <span class="lifespan-value ${isDanger ? 'lifespan-danger' : ''}">${state.lifespan}年</span>
+                </div>
+
+                ${currentStatusHtml}
+
+                <div class="gacha-panel fade-in">
+                    ${flashClass ? `<div class="flash-effect ${flashClass}"></div>` : ''}
+                    <h2 class="step-title">${stepName}</h2>
+                    
+                    <div class="gacha-result-area" id="result-area">
+                        ${state.currentRollResult && !state.isRolling ? `
+                            <div style="text-align: center; z-index: 2;">
+                                ${state.currentRollResult.rank !== '-' ? `<div class="result-rank rank-${state.currentRollResult.rank}">${state.currentRollResult.rank}</div>` : `<div class="result-rank rank-none">決定</div>`}
+                                <div class="result-name">${state.currentRollResult.name}</div>
+                                <div class="result-text">${state.currentRollResult.text}</div>
+                            </div>
+                        ` : (state.isRolling ? `<div class="rolling-text">???</div>` : `<div style="color: #64748b; font-size: 2rem;">？</div>`)}
+                    </div>
+
+                    <div class="btn-container">
+                        <button class="btn btn-draw" onclick="handleDraw()" ${state.isRolling || (state.currentRollResult && state.lifespan <= 0 && freeCount === 0) ? 'disabled' : ''}>
+                            ${state.currentRollResult ? btnText : (freeCount > 0 ? `ガチャを引く <span class="free-text">（初回無料）</span>` : `ガチャを引く <span class="free-text">（寿命20年消費）</span>`)}
+                        </button>
+                        
+                        ${state.currentRollResult && !state.isRolling ? `
+                            <button class="btn btn-next fade-in" onclick="handleNext()">
+                                この結果で次へ進む
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+        else if (state.screen === 'gameover') {
+            appElement.innerHTML = `
+                <div class="screen">
+                    <h1 class="gameover-text">転生失敗</h1>
+                    <p class="story-text" style="text-align: center;">
+                        欲をかきすぎた結果、生まれる前に寿命が尽きてしまいました。<br>
+                        あなたは宇宙の塵となり、二度と転生することはできません。
+                    </p>
+                    <button class="btn btn-next" onclick="startGame()">もう一度輪廻の輪へ</button>
+                </div>
+            `;
+        }
+        else if (state.screen === 'result') {
+            const score = calculateFinalScore();
+            const rank = getRank(score);
+            const r = state.results;
+            
+            const specialTitle = getSpecialTitle(r);
+            const titleHtml = specialTitle ? `<div class="title-badge fade-in" style="animation-delay: 0.1s;">称号：${specialTitle}</div>` : '';
+
+            const story = `あなたは<span class="highlight">【${r.country.name}】</span>の<span class="highlight">【${r.family.name}】</span>に、<br><span class="highlight">【${r.face.name}】</span>の<span class="highlight">【${r.gender.name}】</span>として生まれ、<br>最終的に<span class="highlight">【${r.job.name}】</span>になりました。<br><br>残りの寿命は<span class="highlight">【${state.lifespan}年】</span>です。`;
+
+            let angelComment = "";
+            if (rank === 'SS') angelComment = "「神をも恐れぬ完璧な人生ですね！いってらっしゃい！」";
+            else if (rank === 'S' || rank === 'A') angelComment = "「素晴らしいスタートダッシュです。良い人生を！」";
+            else if (rank === 'E') angelComment = "「……強く生きてくださいね。来世に期待しましょう。」";
+            else angelComment = "「まあ、ありふれた人生になりそうですね。いってらっしゃい。」";
+
+            appElement.innerHTML = `
+                <div class="screen">
+                    <h2 class="title" style="font-size: 2rem;">転生完了</h2>
+                    
+                    ${titleHtml}
+
+                    <div class="story-text fade-in" style="animation-delay: 0.2s;">
+                        ${story}
+                    </div>
+                    
+                    <div class="final-rank-box fade-in" style="animation-delay: 0.4s; animation-fill-mode: both;">
+                        <div class="final-rank-label">あなたの人生ランク</div>
+                        <div class="final-rank-value rank-${rank}">${rank}</div>
+                        <div style="color: #94a3b8; margin-top: 5px; font-size: 0.9rem;">総合スコア: ${score}pt</div>
+                    </div>
+
+                    <div class="guide-character fade-in" style="animation-delay: 0.6s; animation-fill-mode: both; width: 100%; justify-content: center;">
+                        <span class="guide-icon">👼</span>
+                        <p class="guide-text">${angelComment}</p>
+                    </div>
+
+                    <button class="btn btn-draw fade-in" onclick="startGame()" style="margin-top: 20px; animation-delay: 0.8s; animation-fill-mode: both; width: 200px;">
+                        別の人生をやり直す
+                    </button>
+                </div>
+            `;
+        }
+    }
+
+    render();
+</script>
+</body>
+</html>

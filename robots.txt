@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://tenma2066-tech.github.io/rinne-tensei-game/sitemap.xml

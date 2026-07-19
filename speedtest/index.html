@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>インターネット速度計測 | 回線スピードテスト</title>
+    <meta name="description" content="使っているインターネット接続の情報と、上り・下りの通信速度、Ping、ジッターをブラウザだけで計測できる無料スピードテスト。インストール不要。">
+    <meta name="theme-color" content="#0b1220">
+    <meta name="robots" content="index, follow">
+    <style>
+        :root {
+            --bg: #0b1220;
+            --bg-grad-a: #0b1220;
+            --bg-grad-b: #111d33;
+            --panel: rgba(21, 32, 54, 0.72);
+            --panel-solid: #152036;
+            --border: #26364f;
+            --text: #eef4ff;
+            --muted: #93a4c2;
+            --down: #38bdf8;
+            --up: #f472b6;
+            --accent: #4ade80;
+            --warn: #fbbf24;
+            --danger: #f87171;
+            --shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            min-height: 100%;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            color: var(--text);
+            background: radial-gradient(1200px 600px at 50% -10%, var(--bg-grad-b), var(--bg-grad-a));
+            background-attachment: fixed;
+            display: flex;
+            justify-content: center;
+            padding: 24px 16px 56px;
+            line-height: 1.6;
+        }
+
+        .app {
+            width: 100%;
+            max-width: 760px;
+        }
+
+        header.hero {
+            text-align: center;
+            margin-bottom: 22px;
+        }
+
+        header.hero h1 {
+            font-size: clamp(1.5rem, 4.5vw, 2.1rem);
+            letter-spacing: 0.02em;
+        }
+
+        header.hero p {
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin-top: 6px;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(6px);
+            padding: 22px;
+            margin-bottom: 18px;
+        }
+
+        /* ---- Gauge ---- */
+        .gauge-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .gauge {
+            position: relative;
+            width: min(320px, 82vw);
+            aspect-ratio: 1 / 1;
+        }
+
+        .gauge svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(135deg);
+            pointer-events: none;
+        }
+
+        .gauge .track {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.08);
+            stroke-linecap: round;
+        }
+
+        .gauge .fill {
+            fill: none;
+            stroke: var(--down);
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.2s linear, stroke 0.3s ease;
+        }
+
+        .gauge-center {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .gauge-phase {
+            font-size: 0.8rem;
+            color: var(--muted);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .gauge-value {
+            font-size: clamp(2.6rem, 12vw, 3.8rem);
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.05;
+        }
+
+        .gauge-unit {
+            font-size: 0.95rem;
+            color: var(--muted);
+        }
+
+        .start-btn {
+            margin-top: 20px;
+            border: none;
+            cursor: pointer;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #041018;
+            background: linear-gradient(135deg, #4ade80, #38bdf8);
+            padding: 14px 46px;
+            border-radius: 999px;
+            box-shadow: 0 10px 24px rgba(56, 189, 248, 0.35);
+            transition: transform 0.12s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .start-btn:hover { transform: translateY(-1px); }
+        .start-btn:active { transform: translateY(1px); }
+        .start-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.55;
+            box-shadow: none;
+        }
+
+        /* ---- Result tiles ---- */
+        .results {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-top: 22px;
+            width: 100%;
+        }
+
+        @media (max-width: 560px) {
+            .results { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .tile {
+            background: rgba(9, 16, 30, 0.55);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 10px;
+            text-align: center;
+        }
+
+        .tile .label {
+            font-size: 0.72rem;
+            color: var(--muted);
+            letter-spacing: 0.05em;
+        }
+
+        .tile .val {
+            font-size: 1.35rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            margin-top: 4px;
+        }
+
+        .tile .val small { font-size: 0.6em; color: var(--muted); font-weight: 500; }
+        .tile.down .val { color: var(--down); }
+        .tile.up .val { color: var(--up); }
+        .tile.ping .val { color: var(--accent); }
+        .tile.jit .val { color: var(--warn); }
+
+        /* ---- Info section ---- */
+        .section-title {
+            font-size: 0.82rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title::before {
+            content: "";
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px 18px;
+        }
+
+        @media (max-width: 560px) {
+            .info-grid { grid-template-columns: 1fr; }
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 8px 0;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+            font-size: 0.9rem;
+        }
+
+        .info-row .k { color: var(--muted); white-space: nowrap; }
+        .info-row .v {
+            text-align: right;
+            font-weight: 600;
+            word-break: break-word;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+        }
+        .badge.online { color: var(--accent); border-color: rgba(74, 222, 128, 0.4); }
+        .badge.offline { color: var(--danger); border-color: rgba(248, 113, 113, 0.4); }
+        .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .ghost-btn {
+            flex: 1;
+            min-width: 140px;
+            cursor: pointer;
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 11px 14px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+        .ghost-btn:hover { background: rgba(255,255,255,0.05); border-color: #3b5075; }
+        .ghost-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .note {
+            font-size: 0.78rem;
+            color: var(--muted);
+            text-align: center;
+            margin-top: 8px;
+        }
+        .note a { color: var(--down); }
+
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 26px;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--panel-solid);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 10px 18px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            box-shadow: var(--shadow);
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        .spin {
+            display: inline-block;
+            width: 12px; height: 12px;
+            border: 2px solid rgba(255,255,255,0.25);
+            border-top-color: var(--text);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: -1px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header class="hero">
+            <h1>インターネット速度計測</h1>
+            <p>回線の接続情報と、上り・下りの通信速度をブラウザだけで計測します</p>
+        </header>
+
+        <div class="card gauge-wrap">
+            <div class="gauge">
+                <svg viewBox="0 0 200 200" aria-hidden="true">
+                    <circle class="track" cx="100" cy="100" r="88" stroke-width="14"
+                            stroke-dasharray="414.7 552.9"></circle>
+                    <circle class="fill" id="gaugeFill" cx="100" cy="100" r="88" stroke-width="14"
+                            stroke-dasharray="0 552.9" stroke-dashoffset="0"></circle>
+                </svg>
+                <div class="gauge-center">
+                    <div class="gauge-phase" id="phase">待機中</div>
+                    <div class="gauge-value" id="liveValue">0.0</div>
+                    <div class="gauge-unit">Mbps</div>
+                </div>
+            </div>
+
+            <button class="start-btn" id="startBtn">計測開始</button>
+
+            <div class="results">
+                <div class="tile down">
+                    <div class="label">下り Download</div>
+                    <div class="val" id="rDown">– <small>Mbps</small></div>
+                </div>
+                <div class="tile up">
+                    <div class="label">上り Upload</div>
+                    <div class="val" id="rUp">– <small>Mbps</small></div>
+                </div>
+                <div class="tile ping">
+                    <div class="label">Ping</div>
+                    <div class="val" id="rPing">– <small>ms</small></div>
+                </div>
+                <div class="tile jit">
+                    <div class="label">ジッター</div>
+                    <div class="val" id="rJit">– <small>ms</small></div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="ghost-btn" id="copyBtn" disabled>結果をコピー</button>
+                <button class="ghost-btn" id="retestBtn" disabled>もう一度計測</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-title">接続情報</div>
+            <div class="info-grid" id="infoGrid">
+                <!-- filled by JS -->
+            </div>
+            <p class="note">
+                実測には <a href="https://speed.cloudflare.com/" target="_blank" rel="noopener">Cloudflare</a> の計測用エンドポイントを利用しています。
+                測定値は回線状況・端末・時間帯により変動します。
+            </p>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    (function () {
+        "use strict";
+
+        // ---------- DOM ----------
+        const $ = (id) => document.getElementById(id);
+        const startBtn = $("startBtn");
+        const retestBtn = $("retestBtn");
+        const copyBtn = $("copyBtn");
+        const phaseEl = $("phase");
+        const liveEl = $("liveValue");
+        const fillEl = $("gaugeFill");
+        const infoGrid = $("infoGrid");
+        const toastEl = $("toast");
+
+        const rDown = $("rDown"), rUp = $("rUp"), rPing = $("rPing"), rJit = $("rJit");
+
+        // Gauge geometry: 270deg arc, circumference of r=88 is ~552.92, arc length = 3/4 = ~414.69
+        const CIRC = 2 * Math.PI * 88;
+        const ARC = CIRC * 0.75;
+        // Non-linear scale so common speeds are readable: maps Mbps -> 0..1 of the arc
+        const SCALE_POINTS = [0, 5, 10, 25, 50, 100, 250, 500, 1000];
+        function speedToFrac(mbps) {
+            const pts = SCALE_POINTS;
+            const maxIdx = pts.length - 1;
+            if (mbps <= 0) return 0;
+            if (mbps >= pts[maxIdx]) return 1;
+            for (let i = 1; i < pts.length; i++) {
+                if (mbps <= pts[i]) {
+                    const seg = (mbps - pts[i - 1]) / (pts[i] - pts[i - 1]);
+                    return (i - 1 + seg) / maxIdx;
+                }
+            }
+            return 1;
+        }
+
+        function setGauge(mbps, color) {
+            const frac = speedToFrac(mbps);
+            fillEl.setAttribute("stroke-dasharray", (ARC * frac) + " " + CIRC);
+            if (color) fillEl.style.stroke = color;
+        }
+
+        function setLive(mbps) {
+            liveEl.textContent = mbps >= 100 ? mbps.toFixed(0) : mbps.toFixed(1);
+        }
+
+        function setPhase(txt) { phaseEl.textContent = txt; }
+
+        function toast(msg) {
+            toastEl.textContent = msg;
+            toastEl.classList.add("show");
+            clearTimeout(toast._t);
+            toast._t = setTimeout(() => toastEl.classList.remove("show"), 2600);
+        }
+
+        const fmt = (n, d = 1) => (n === null || n === undefined || isNaN(n)) ? "–" : Number(n).toFixed(d);
+
+        // ---------- Config ----------
+        const DOWN_URL = "https://speed.cloudflare.com/__down";
+        const UP_URL = "https://speed.cloudflare.com/__up";
+        const META_URL = "https://speed.cloudflare.com/meta";
+
+        // ---------- Connection info ----------
+        function browserName() {
+            const ua = navigator.userAgent;
+            if (/Edg\//.test(ua)) return "Edge";
+            if (/OPR\//.test(ua)) return "Opera";
+            if (/Chrome\//.test(ua) && !/Chromium/.test(ua)) return "Chrome";
+            if (/Firefox\//.test(ua)) return "Firefox";
+            if (/Safari\//.test(ua) && /Version\//.test(ua)) return "Safari";
+            return "不明";
+        }
+
+        function platformName() {
+            const ua = navigator.userAgent;
+            if (/Android/.test(ua)) return "Android";
+            if (/iPhone|iPad|iPod/.test(ua)) return "iOS";
+            if (/Windows/.test(ua)) return "Windows";
+            if (/Mac OS X/.test(ua)) return "macOS";
+            if (/Linux/.test(ua)) return "Linux";
+            return navigator.platform || "不明";
+        }
+
+        const results = {}; // accumulates for copy
+
+        function row(k, v) {
+            const el = document.createElement("div");
+            el.className = "info-row";
+            const kk = document.createElement("span");
+            kk.className = "k"; kk.textContent = k;
+            const vv = document.createElement("span");
+            vv.className = "v";
+            if (v instanceof Node) vv.appendChild(v); else vv.textContent = v;
+            el.appendChild(kk); el.appendChild(vv);
+            infoGrid.appendChild(el);
+            return vv;
+        }
+
+        function buildBaseInfo() {
+            infoGrid.innerHTML = "";
+
+            const online = navigator.onLine;
+            const badge = document.createElement("span");
+            badge.className = "badge " + (online ? "online" : "offline");
+            badge.innerHTML = '<span class="dot"></span>' + (online ? "オンライン" : "オフライン");
+            row("接続状態", badge);
+            results["接続状態"] = online ? "オンライン" : "オフライン";
+
+            const ipCell = row("グローバルIP", "取得中 …");
+            const ispCell = row("プロバイダ(AS)", "取得中 …");
+            const locCell = row("接続元エリア", "取得中 …");
+            const coloCell = row("接続先データセンター", "取得中 …");
+            const protoCell = row("HTTPプロトコル", "取得中 …");
+
+            // navigator.connection (Network Information API)
+            const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            if (conn) {
+                if (conn.effectiveType) {
+                    row("回線種別(推定)", conn.effectiveType.toUpperCase());
+                    results["回線種別(推定)"] = conn.effectiveType.toUpperCase();
+                }
+                if (typeof conn.downlink === "number") {
+                    row("推定帯域", conn.downlink + " Mbps");
+                    results["推定帯域"] = conn.downlink + " Mbps";
+                }
+                if (typeof conn.rtt === "number") {
+                    row("推定RTT", conn.rtt + " ms");
+                }
+                row("データセーバー", conn.saveData ? "ON" : "OFF");
+            }
+
+            row("ブラウザ", browserName());
+            row("OS / 端末", platformName());
+            const lang = navigator.language || "-";
+            row("言語", lang);
+
+            return { ipCell, ispCell, locCell, coloCell, protoCell };
+        }
+
+        async function loadMeta(cells) {
+            try {
+                const resp = await fetch(META_URL + "?_=" + Date.now(), { cache: "no-store" });
+                const m = await resp.json();
+                const ip = m.clientIp || "-";
+                cells.ipCell.textContent = ip;
+                results["グローバルIP"] = ip;
+
+                const isp = [m.asn ? ("AS" + m.asn) : null, m.asOrganization].filter(Boolean).join(" ");
+                cells.ispCell.textContent = isp || "-";
+                results["プロバイダ(AS)"] = isp || "-";
+
+                const loc = [m.city, m.region, m.country].filter(Boolean).join(", ");
+                cells.locCell.textContent = loc || "-";
+                results["接続元エリア"] = loc || "-";
+
+                cells.coloCell.textContent = m.colo || "-";
+                results["接続先データセンター"] = m.colo || "-";
+
+                cells.protoCell.textContent = m.httpProtocol || "-";
+            } catch (e) {
+                cells.ipCell.textContent = "取得失敗";
+                cells.ispCell.textContent = "取得失敗";
+                cells.locCell.textContent = "取得失敗";
+                cells.coloCell.textContent = "取得失敗";
+                cells.protoCell.textContent = "-";
+            }
+        }
+
+        // ---------- Latency (ping / jitter) ----------
+        async function measureLatency(samples = 12) {
+            const times = [];
+            for (let i = 0; i < samples; i++) {
+                const t0 = performance.now();
+                try {
+                    await fetch(DOWN_URL + "?bytes=0&_=" + Math.random(), { cache: "no-store" });
+                } catch (e) {
+                    continue;
+                }
+                const dt = performance.now() - t0;
+                times.push(dt);
+                setPhase("Ping 計測中");
+                liveEl.textContent = dt.toFixed(0);
+            }
+            if (!times.length) return { ping: null, jitter: null };
+            // discard the slowest sample (first-connection overhead)
+            times.sort((a, b) => a - b);
+            const trimmed = times.slice(0, Math.max(1, times.length - 2));
+            const ping = trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
+            let jitter = 0;
+            for (let i = 1; i < trimmed.length; i++) jitter += Math.abs(trimmed[i] - trimmed[i - 1]);
+            jitter = trimmed.length > 1 ? jitter / (trimmed.length - 1) : 0;
+            return { ping, jitter };
+        }
+
+        // ---------- Download ----------
+        async function measureDownload(durationMs = 9000, streams = 4, chunkBytes = 25000000) {
+            let totalBytes = 0;
+            let running = true;
+            const controllers = [];
+            const startAt = performance.now();
+            let measureStart = null;
+            let measuredBytes = 0;
+            const WARMUP_MS = 1500;
+
+            async function streamLoop() {
+                while (running) {
+                    const ctrl = new AbortController();
+                    controllers.push(ctrl);
+                    try {
+                        const resp = await fetch(DOWN_URL + "?bytes=" + chunkBytes + "&_=" + Math.random(),
+                            { cache: "no-store", signal: ctrl.signal });
+                        const reader = resp.body.getReader();
+                        while (running) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            const now = performance.now();
+                            totalBytes += value.length;
+                            if (measureStart === null && (now - startAt) >= WARMUP_MS) {
+                                measureStart = now;
+                                measuredBytes = 0;
+                            } else if (measureStart !== null) {
+                                measuredBytes += value.length;
+                            }
+                        }
+                    } catch (e) {
+                        if (!running) break;
+                    }
+                }
+            }
+
+            const loops = [];
+            for (let i = 0; i < streams; i++) loops.push(streamLoop());
+
+            const timer = setInterval(() => {
+                const now = performance.now();
+                const base = measureStart || startAt;
+                const bytes = measureStart ? measuredBytes : totalBytes;
+                const sec = (now - base) / 1000;
+                if (sec > 0.2) {
+                    const mbps = (bytes * 8) / sec / 1e6;
+                    setLive(mbps);
+                    setGauge(mbps, "var(--down)");
+                }
+            }, 150);
+
+            await new Promise((r) => setTimeout(r, durationMs));
+            running = false;
+            controllers.forEach((c) => { try { c.abort(); } catch (e) {} });
+            clearInterval(timer);
+            await Promise.allSettled(loops);
+
+            const end = performance.now();
+            const base = measureStart || startAt;
+            const bytes = measureStart ? measuredBytes : totalBytes;
+            const sec = (end - base) / 1000;
+            const mbps = sec > 0 ? (bytes * 8) / sec / 1e6 : 0;
+            return mbps;
+        }
+
+        // ---------- Upload ----------
+        function uploadOnce(bytes, onProgress, signalAbort) {
+            return new Promise((resolve) => {
+                const xhr = new XMLHttpRequest();
+                const payload = new Uint8Array(bytes);
+                let last = 0;
+                xhr.open("POST", UP_URL + "?_=" + Math.random(), true);
+                xhr.upload.onprogress = (e) => {
+                    if (e.loaded > last) { onProgress(e.loaded - last); last = e.loaded; }
+                };
+                xhr.onload = () => resolve(true);
+                xhr.onerror = () => resolve(false);
+                xhr.onabort = () => resolve(false);
+                signalAbort.list.push(xhr);
+                try { xhr.send(payload); } catch (e) { resolve(false); }
+            });
+        }
+
+        async function measureUpload(durationMs = 9000, streams = 3, chunkBytes = 6000000) {
+            let running = true;
+            let totalSent = 0;
+            let measuredSent = 0;
+            const startAt = performance.now();
+            let measureStart = null;
+            const WARMUP_MS = 1500;
+            const signalAbort = { list: [] };
+
+            function onProgress(delta) {
+                const now = performance.now();
+                totalSent += delta;
+                if (measureStart === null && (now - startAt) >= WARMUP_MS) {
+                    measureStart = now;
+                    measuredSent = 0;
+                } else if (measureStart !== null) {
+                    measuredSent += delta;
+                }
+            }
+
+            async function loop() {
+                while (running) {
+                    await uploadOnce(chunkBytes, onProgress, signalAbort);
+                }
+            }
+
+            const loops = [];
+            for (let i = 0; i < streams; i++) loops.push(loop());
+
+            const timer = setInterval(() => {
+                const now = performance.now();
+                const base = measureStart || startAt;
+                const bytes = measureStart ? measuredSent : totalSent;
+                const sec = (now - base) / 1000;
+                if (sec > 0.2) {
+                    const mbps = (bytes * 8) / sec / 1e6;
+                    setLive(mbps);
+                    setGauge(mbps, "var(--up)");
+                }
+            }, 150);
+
+            await new Promise((r) => setTimeout(r, durationMs));
+            running = false;
+            signalAbort.list.forEach((x) => { try { x.abort(); } catch (e) {} });
+            clearInterval(timer);
+            await Promise.allSettled(loops);
+
+            const end = performance.now();
+            const base = measureStart || startAt;
+            const bytes = measureStart ? measuredSent : totalSent;
+            const sec = (end - base) / 1000;
+            const mbps = sec > 0 ? (bytes * 8) / sec / 1e6 : 0;
+            return mbps;
+        }
+
+        // ---------- Orchestration ----------
+        let busy = false;
+
+        async function runTest() {
+            if (busy) return;
+            busy = true;
+            startBtn.disabled = true;
+            retestBtn.disabled = true;
+            copyBtn.disabled = true;
+            startBtn.innerHTML = '<span class="spin"></span> 計測中 …';
+
+            rDown.innerHTML = '– <small>Mbps</small>';
+            rUp.innerHTML = '– <small>Mbps</small>';
+            rPing.innerHTML = '– <small>ms</small>';
+            rJit.innerHTML = '– <small>ms</small>';
+
+            if (!navigator.onLine) {
+                toast("オフラインのようです。接続を確認してください。");
+            }
+
+            try {
+                // Ping / Jitter
+                setPhase("Ping 計測中");
+                setGauge(0);
+                const { ping, jitter } = await measureLatency();
+                rPing.innerHTML = fmt(ping, 0) + ' <small>ms</small>';
+                rJit.innerHTML = fmt(jitter, 0) + ' <small>ms</small>';
+                results["Ping"] = fmt(ping, 0) + " ms";
+                results["ジッター"] = fmt(jitter, 0) + " ms";
+
+                // Download
+                setPhase("下り計測中");
+                setGauge(0, "var(--down)");
+                const down = await measureDownload();
+                setLive(down);
+                setGauge(down, "var(--down)");
+                rDown.innerHTML = fmt(down, down >= 100 ? 0 : 1) + ' <small>Mbps</small>';
+                results["下り"] = fmt(down, 1) + " Mbps";
+
+                // Upload
+                setPhase("上り計測中");
+                setGauge(0, "var(--up)");
+                const up = await measureUpload();
+                setLive(up);
+                setGauge(up, "var(--up)");
+                rUp.innerHTML = fmt(up, up >= 100 ? 0 : 1) + ' <small>Mbps</small>';
+                results["上り"] = fmt(up, 1) + " Mbps";
+
+                setPhase("計測完了");
+                // Show download as the resting gauge value
+                setLive(down);
+                setGauge(down, "var(--down)");
+                copyBtn.disabled = false;
+                toast("計測が完了しました");
+            } catch (e) {
+                setPhase("エラー");
+                toast("計測中にエラーが発生しました");
+                console.error(e);
+            } finally {
+                busy = false;
+                startBtn.disabled = false;
+                retestBtn.disabled = false;
+                startBtn.textContent = "再計測";
+            }
+        }
+
+        function copyResults() {
+            const order = ["下り", "上り", "Ping", "ジッター", "接続状態", "グローバルIP",
+                "プロバイダ(AS)", "接続元エリア", "接続先データセンター",
+                "回線種別(推定)", "推定帯域"];
+            const lines = ["■ インターネット速度計測結果", "計測日時: " + new Date().toLocaleString()];
+            order.forEach((k) => { if (results[k] !== undefined) lines.push(k + ": " + results[k]); });
+            const text = lines.join("\n");
+            const done = () => toast("結果をコピーしました");
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+            } else {
+                fallbackCopy(text, done);
+            }
+        }
+
+        function fallbackCopy(text, done) {
+            const ta = document.createElement("textarea");
+            ta.value = text;
+            ta.style.position = "fixed";
+            ta.style.opacity = "0";
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand("copy"); done(); } catch (e) { toast("コピーに失敗しました"); }
+            document.body.removeChild(ta);
+        }
+
+        // ---------- Init ----------
+        const cells = buildBaseInfo();
+        loadMeta(cells);
+        window.addEventListener("online", () => { const c = buildBaseInfo(); loadMeta(c); });
+        window.addEventListener("offline", () => buildBaseInfo());
+
+        startBtn.addEventListener("click", runTest);
+        retestBtn.addEventListener("click", runTest);
+        copyBtn.addEventListener("click", copyResults);
+    })();
+    </script>
+</body>
+</html>

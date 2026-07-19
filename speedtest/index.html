@@ -650,15 +650,19 @@
         }
 
         // ---------- Download ----------
-        async function measureDownload(durationMs = 10000, streams = 5, chunkBytes = 100000000) {
+        // Uses XMLHttpRequest download-progress events rather than fetch() streaming.
+        // Safari / iOS handle fetch response-body streaming inconsistently and reject very
+        // large `bytes` values, which made the download phase fail there; XHR onprogress is
+        // universally supported (and mirrors how the upload phase already works).
+        async function measureDownload(durationMs = 10000, streams = 6, chunkBytes = 10000000) {
             let totalBytes = 0;
             let running = true;
             let ok = false;            // did any bytes arrive at all?
-            const controllers = [];
             const startAt = performance.now();
             let measureStart = null;
             let measuredBytes = 0;
             const WARMUP_MS = 2000;    // discard TCP slow-start ramp-up
+            const slots = [];          // one in-flight XHR per stream (bounds memory)
 
             function account(len) {
                 const now = performance.now();
@@ -672,38 +676,40 @@
                 }
             }
 
-            async function streamLoop() {
+            function downloadOnce(slot) {
+                return new Promise((resolve) => {
+                    const xhr = new XMLHttpRequest();
+                    let last = 0;
+                    xhr.open("GET", DOWN_URL + "?bytes=" + chunkBytes + "&_=" + Math.random(), true);
+                    xhr.responseType = "arraybuffer";
+                    xhr.onprogress = (e) => {
+                        if (e.loaded > last) { account(e.loaded - last); last = e.loaded; }
+                    };
+                    xhr.onload = () => {
+                        try {
+                            const tot = xhr.response ? xhr.response.byteLength : 0;
+                            if (tot > last) { account(tot - last); last = tot; }
+                        } catch (e) {}
+                        resolve(true);
+                    };
+                    xhr.onerror = () => resolve(false);
+                    xhr.onabort = () => resolve(false);
+                    slot.xhr = xhr;
+                    try { xhr.send(); } catch (e) { resolve(false); }
+                });
+            }
+
+            async function loop(slot) {
                 while (running) {
-                    const ctrl = new AbortController();
-                    controllers.push(ctrl);
-                    try {
-                        const resp = await fetch(DOWN_URL + "?bytes=" + chunkBytes + "&_=" + Math.random(),
-                            { cache: "no-store", signal: ctrl.signal });
-                        if (!resp.ok) { await new Promise(r => setTimeout(r, 200)); continue; }
-                        if (resp.body && resp.body.getReader) {
-                            const reader = resp.body.getReader();
-                            while (running) {
-                                const { done, value } = await reader.read();
-                                if (done) break;
-                                account(value.length);
-                            }
-                        } else {
-                            // Browsers without streaming bodies: time discrete smaller chunks.
-                            ctrl.abort();
-                            const t0 = performance.now();
-                            const buf = await fetch(DOWN_URL + "?bytes=5000000&_=" + Math.random(),
-                                { cache: "no-store" }).then(r => r.arrayBuffer());
-                            if (performance.now() - t0 > 0) account(buf.byteLength);
-                        }
-                    } catch (e) {
-                        if (!running) break;
-                    }
+                    await downloadOnce(slot);
+                    slot.xhr = null;   // release the buffered response for GC
+                    if (!running) break;
                 }
             }
 
             setUnit("Mbps");
             const loops = [];
-            for (let i = 0; i < streams; i++) loops.push(streamLoop());
+            for (let i = 0; i < streams; i++) { const slot = { xhr: null }; slots.push(slot); loops.push(loop(slot)); }
 
             const timer = setInterval(() => {
                 const now = performance.now();
@@ -719,7 +725,7 @@
 
             await new Promise((r) => setTimeout(r, durationMs));
             running = false;
-            controllers.forEach((c) => { try { c.abort(); } catch (e) {} });
+            slots.forEach((s) => { if (s.xhr) { try { s.xhr.abort(); } catch (e) {} } });
             clearInterval(timer);
             await Promise.allSettled(loops);
 

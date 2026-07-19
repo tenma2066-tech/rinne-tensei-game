@@ -321,6 +321,78 @@
             vertical-align: -1px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ---- Evaluation ---- */
+        .eval-head {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+        .grade {
+            flex-shrink: 0;
+            width: 76px;
+            height: 76px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.4rem;
+            font-weight: 800;
+            color: #041018;
+            line-height: 1;
+        }
+        .grade.g-s { background: linear-gradient(135deg, #4ade80, #22d3ee); }
+        .grade.g-a { background: linear-gradient(135deg, #38bdf8, #4ade80); }
+        .grade.g-b { background: linear-gradient(135deg, #60a5fa, #38bdf8); }
+        .grade.g-c { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+        .grade.g-d { background: linear-gradient(135deg, #f87171, #ef4444); color: #fff; }
+        .eval-head .txt { flex: 1; }
+        .eval-head .rank { font-size: 1.05rem; font-weight: 700; }
+        .eval-head .comment { font-size: 0.86rem; color: var(--muted); margin-top: 3px; }
+
+        .bloat-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 18px;
+            padding: 12px 14px;
+            background: rgba(9, 16, 30, 0.55);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 18px;
+            font-size: 0.86rem;
+        }
+        .bloat-row .item { display: flex; gap: 6px; }
+        .bloat-row .item .k { color: var(--muted); }
+        .bloat-row .item .v { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+        .use-list { display: flex; flex-direction: column; gap: 2px; }
+        .use-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 2px;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+            font-size: 0.92rem;
+        }
+        .use-item:last-child { border-bottom: none; }
+        .use-item .name { display: flex; align-items: center; gap: 8px; }
+        .use-item .name .emoji { font-size: 1.05rem; }
+        .verdict {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 999px;
+            white-space: nowrap;
+        }
+        .verdict .mark { font-size: 0.95rem; }
+        .v-good { color: #4ade80; background: rgba(74, 222, 128, 0.12); }
+        .v-ok   { color: #7dd3fc; background: rgba(56, 189, 248, 0.12); }
+        .v-poor { color: #fbbf24; background: rgba(251, 191, 36, 0.12); }
     </style>
 </head>
 <body>
@@ -372,6 +444,24 @@
             </div>
         </div>
 
+        <div class="card" id="evalCard" hidden>
+            <div class="section-title">回線評価</div>
+            <div class="eval-head">
+                <div class="grade" id="gradeBox">–</div>
+                <div class="txt">
+                    <div class="rank" id="gradeRank">–</div>
+                    <div class="comment" id="gradeComment">計測すると評価が表示されます。</div>
+                </div>
+            </div>
+            <div class="bloat-row" id="bloatRow">
+                <div class="item"><span class="k">アイドル時Ping</span><span class="v" id="bIdle">–</span></div>
+                <div class="item"><span class="k">負荷時Ping(下り)</span><span class="v" id="bDown">–</span></div>
+                <div class="item"><span class="k">負荷時Ping(上り)</span><span class="v" id="bUp">–</span></div>
+                <div class="item"><span class="k">バッファブロート</span><span class="v" id="bBloat">–</span></div>
+            </div>
+            <div class="use-list" id="useList"></div>
+        </div>
+
         <div class="card">
             <div class="section-title">接続情報</div>
             <div class="info-grid" id="infoGrid">
@@ -404,6 +494,9 @@
 
         const unitEl = $("gaugeUnit");
         const rDown = $("rDown"), rUp = $("rUp"), rPing = $("rPing"), rJit = $("rJit");
+        const evalCard = $("evalCard"), gradeBox = $("gradeBox"), gradeRank = $("gradeRank"),
+              gradeComment = $("gradeComment"), useList = $("useList");
+        const bIdle = $("bIdle"), bDown = $("bDown"), bUp = $("bUp"), bBloat = $("bBloat");
 
         function setUnit(u) { unitEl.textContent = u; }
 
@@ -613,6 +706,35 @@
             fill(cells.protoCell, data.proto, null, true);
         }
 
+        // ---------- Shared measurement helpers ----------
+        function median(arr) {
+            if (!arr || !arr.length) return null;
+            const s = arr.slice().sort((a, b) => a - b);
+            const m = Math.floor(s.length / 2);
+            return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+        }
+
+        // A latency probe that runs concurrently with a load test to measure "loaded"
+        // latency (the extra delay a packet sees while the link is saturated — bufferbloat).
+        function startLatencyProbe() {
+            const samples = [];
+            let active = true;
+            (async function run() {
+                // Let the load ramp up before sampling under-load latency.
+                await new Promise((r) => setTimeout(r, 2200));
+                while (active) {
+                    const t0 = performance.now();
+                    try {
+                        const r = await fetch(DOWN_URL + "?bytes=0&_=" + Math.random(), { cache: "no-store" });
+                        if (r.body) { const rd = r.body.getReader(); while (!(await rd.read()).done) {} }
+                        if (active) samples.push(performance.now() - t0);
+                    } catch (e) {}
+                    await new Promise((r) => setTimeout(r, 250));
+                }
+            })();
+            return { stop() { active = false; return median(samples); } };
+        }
+
         // ---------- Latency (ping / jitter) ----------
         async function measureLatency(samples = 15) {
             setUnit("ms");
@@ -654,15 +776,19 @@
         // Safari / iOS handle fetch response-body streaming inconsistently and reject very
         // large `bytes` values, which made the download phase fail there; XHR onprogress is
         // universally supported (and mirrors how the upload phase already works).
-        async function measureDownload(durationMs = 10000, streams = 6, chunkBytes = 10000000) {
+        async function measureDownload(durationMs = 11000, streams = 6) {
             let totalBytes = 0;
             let running = true;
             let ok = false;            // did any bytes arrive at all?
             const startAt = performance.now();
             let measureStart = null;
             let measuredBytes = 0;
-            const WARMUP_MS = 2000;    // discard TCP slow-start ramp-up
+            const WARMUP_MS = 2500;    // discard TCP slow-start ramp-up
             const slots = [];          // one in-flight XHR per stream (bounds memory)
+            // Adaptive chunk size: start small, grow on fast links so request churn does
+            // not cap the measured throughput. Capped so buffered responses stay bounded.
+            let chunkBytes = 10000000;
+            const MAX_CHUNK = 50000000;
 
             function account(len) {
                 const now = performance.now();
@@ -680,6 +806,7 @@
                 return new Promise((resolve) => {
                     const xhr = new XMLHttpRequest();
                     let last = 0;
+                    const t0 = performance.now();
                     xhr.open("GET", DOWN_URL + "?bytes=" + chunkBytes + "&_=" + Math.random(), true);
                     xhr.responseType = "arraybuffer";
                     xhr.onprogress = (e) => {
@@ -690,6 +817,10 @@
                             const tot = xhr.response ? xhr.response.byteLength : 0;
                             if (tot > last) { account(tot - last); last = tot; }
                         } catch (e) {}
+                        // Grow the chunk when a request finishes quickly (fast link).
+                        if (performance.now() - t0 < 2000 && chunkBytes < MAX_CHUNK) {
+                            chunkBytes = Math.min(chunkBytes * 2, MAX_CHUNK);
+                        }
                         resolve(true);
                     };
                     xhr.onerror = () => resolve(false);
@@ -708,6 +839,7 @@
             }
 
             setUnit("Mbps");
+            const probe = startLatencyProbe();
             const loops = [];
             for (let i = 0; i < streams; i++) { const slot = { xhr: null }; slots.push(slot); loops.push(loop(slot)); }
 
@@ -725,16 +857,17 @@
 
             await new Promise((r) => setTimeout(r, durationMs));
             running = false;
+            const loaded = probe.stop();
             slots.forEach((s) => { if (s.xhr) { try { s.xhr.abort(); } catch (e) {} } });
             clearInterval(timer);
             await Promise.allSettled(loops);
 
-            if (!ok) return null;   // nothing downloaded — treat as failure
+            if (!ok) return { speed: null, loaded: null };   // nothing downloaded — failure
             const end = performance.now();
             const base = measureStart || startAt;
             const bytes = measureStart ? measuredBytes : totalBytes;
             const sec = (end - base) / 1000;
-            return sec > 0 ? (bytes * 8) / sec / 1e6 : null;
+            return { speed: sec > 0 ? (bytes * 8) / sec / 1e6 : null, loaded };
         }
 
         // ---------- Upload ----------
@@ -754,14 +887,17 @@
             });
         }
 
-        async function measureUpload(durationMs = 9000, streams = 3, chunkBytes = 6000000) {
+        async function measureUpload(durationMs = 10000, streams = 3, chunkBytes = 20000000) {
             let running = true;
             let totalSent = 0;
             let measuredSent = 0;
             let ok = false;
             const startAt = performance.now();
             let measureStart = null;
-            const WARMUP_MS = 2000;
+            // Larger warmup: the browser's local send buffer fills near-instantly and would
+            // otherwise be counted as a huge false initial speed. Skipping it isolates the
+            // steady-state wire rate. A bigger payload also amortizes that buffer effect.
+            const WARMUP_MS = 2500;
             const xhrs = [];
             // Reuse one buffer for every request to avoid repeated multi-MB allocations.
             const payload = new Uint8Array(chunkBytes);
@@ -785,6 +921,7 @@
             }
 
             setUnit("Mbps");
+            const probe = startLatencyProbe();
             const loops = [];
             for (let i = 0; i < streams; i++) loops.push(loop());
 
@@ -802,16 +939,102 @@
 
             await new Promise((r) => setTimeout(r, durationMs));
             running = false;
+            const loaded = probe.stop();
             xhrs.forEach((x) => { try { x.abort(); } catch (e) {} });
             clearInterval(timer);
             await Promise.allSettled(loops);
 
-            if (!ok) return null;   // upload never progressed — treat as failure
+            if (!ok) return { speed: null, loaded: null };   // upload never progressed — failure
             const end = performance.now();
             const base = measureStart || startAt;
             const bytes = measureStart ? measuredSent : totalSent;
             const sec = (end - base) / 1000;
-            return sec > 0 ? (bytes * 8) / sec / 1e6 : null;
+            return { speed: sec > 0 ? (bytes * 8) / sec / 1e6 : null, loaded };
+        }
+
+        // ---------- Evaluation ----------
+        function scoreHigh(v, tiers) { for (const [t, s] of tiers) if (v >= t) return s; return 5; }
+        function scoreLow(v, tiers) { for (const [t, s] of tiers) if (v <= t) return s; return 5; }
+
+        function bufferbloat(idle, loadedDown, loadedUp) {
+            if (idle == null) return null;
+            const loaded = [loadedDown, loadedUp].filter((x) => x != null);
+            if (!loaded.length) return null;
+            return Math.max(0, Math.max.apply(null, loaded) - idle);
+        }
+
+        function evaluate(m) {
+            const down = m.down || 0, up = m.up || 0;
+            const ping = m.ping == null ? 999 : m.ping;
+            const jitter = m.jitter == null ? 999 : m.jitter;
+            const bloat = m.bloat;
+
+            const sDown = scoreHigh(down, [[500, 100], [200, 92], [100, 84], [50, 72], [25, 58], [10, 42], [3, 26]]);
+            const sUp = scoreHigh(up, [[200, 100], [100, 92], [50, 84], [20, 72], [10, 58], [5, 44], [1, 28]]);
+            const sPing = scoreLow(ping, [[10, 100], [20, 92], [35, 82], [50, 72], [80, 58], [120, 42], [200, 26]]);
+            const sJit = scoreLow(jitter, [[2, 100], [5, 90], [10, 78], [20, 62], [40, 42]]);
+            const sBloat = bloat == null ? null : scoreLow(bloat, [[10, 100], [30, 88], [60, 70], [100, 50], [200, 30]]);
+
+            const parts = [[sDown, 0.35], [sUp, 0.18], [sPing, 0.22], [sJit, 0.10]];
+            if (sBloat != null) parts.push([sBloat, 0.15]);
+            const wsum = parts.reduce((a, p) => a + p[1], 0);
+            const score = parts.reduce((a, p) => a + p[0] * p[1], 0) / wsum;
+
+            let grade, cls, rank, comment;
+            if (score >= 90) { grade = "S"; cls = "g-s"; rank = "S — 非常に高速・安定"; comment = "あらゆる用途に余裕をもって対応できる回線です。"; }
+            else if (score >= 78) { grade = "A"; cls = "g-a"; rank = "A — 高速"; comment = "ほとんどの用途を快適に利用できます。"; }
+            else if (score >= 64) { grade = "B"; cls = "g-b"; rank = "B — 標準的"; comment = "日常利用は快適。高負荷な用途は場面により影響が出ることがあります。"; }
+            else if (score >= 48) { grade = "C"; cls = "g-c"; rank = "C — やや遅い"; comment = "動画やビデオ会議で不安定になることがあります。"; }
+            else { grade = "D"; cls = "g-d"; rank = "D — 低速・不安定"; comment = "基本的な利用に支障が出る可能性があります。"; }
+
+            const lvl = (good, okc) => good ? 2 : (okc ? 1 : 0);
+            const cases = [
+                { emoji: "🌐", name: "Web閲覧・SNS", level: lvl(down >= 3, down >= 1) },
+                { emoji: "📺", name: "HD動画 (1080p)", level: lvl(down >= 8, down >= 5) },
+                { emoji: "🎬", name: "4K動画", level: lvl(down >= 35, down >= 25) },
+                { emoji: "📹", name: "ビデオ会議", level: lvl(down >= 5 && up >= 3 && ping <= 100, down >= 2 && up >= 1.5 && ping <= 200) },
+                { emoji: "🎮", name: "オンラインゲーム", level: lvl(ping <= 30 && jitter <= 10 && (bloat == null || bloat <= 60), ping <= 60 && jitter <= 25) },
+                { emoji: "☁️", name: "大容量アップロード", level: lvl(up >= 50, up >= 10) }
+            ];
+            return { grade, cls, rank, comment, score, cases };
+        }
+
+        const VERDICT = { 2: ["◎", "快適", "v-good"], 1: ["○", "可能", "v-ok"], 0: ["△", "厳しい", "v-poor"] };
+
+        function bloatLabel(b) {
+            if (b == null) return "–";
+            const g = b <= 30 ? "良好" : b <= 60 ? "やや増加" : b <= 100 ? "増加" : "大";
+            return "+" + fmt(b, 0) + " ms（" + g + "）";
+        }
+
+        function renderEvaluation(m) {
+            const ev = evaluate(m);
+            gradeBox.textContent = ev.grade;
+            gradeBox.className = "grade " + ev.cls;
+            gradeRank.textContent = ev.rank;
+            gradeComment.textContent = ev.comment;
+
+            bIdle.textContent = m.idlePing == null ? "–" : fmt(m.idlePing, 0) + " ms";
+            bDown.textContent = m.loadedDown == null ? "–" : fmt(m.loadedDown, 0) + " ms";
+            bUp.textContent = m.loadedUp == null ? "–" : fmt(m.loadedUp, 0) + " ms";
+            bBloat.textContent = bloatLabel(m.bloat);
+
+            useList.innerHTML = "";
+            ev.cases.forEach((c) => {
+                const [mark, label, vcls] = VERDICT[c.level];
+                const item = document.createElement("div");
+                item.className = "use-item";
+                item.innerHTML = '<span class="name"><span class="emoji">' + c.emoji + '</span>' + c.name + '</span>' +
+                    '<span class="verdict ' + vcls + '"><span class="mark">' + mark + '</span>' + label + '</span>';
+                useList.appendChild(item);
+            });
+
+            // For the copy action.
+            results["総合評価"] = ev.grade + "（スコア " + Math.round(ev.score) + "/100）";
+            results["バッファブロート"] = bloatLabel(m.bloat);
+            results["用途別適性"] = ev.cases.map((c) => c.name + ":" + VERDICT[c.level][1]).join(" / ");
+
+            evalCard.hidden = false;
         }
 
         // ---------- Orchestration ----------
@@ -829,13 +1052,14 @@
             rUp.innerHTML = '– <small>Mbps</small>';
             rPing.innerHTML = '– <small>ms</small>';
             rJit.innerHTML = '– <small>ms</small>';
+            evalCard.hidden = true;
 
             if (!navigator.onLine) {
                 toast("オフラインのようです。接続を確認してください。");
             }
 
             try {
-                // Ping / Jitter
+                // Ping / Jitter (idle)
                 setPhase("Ping 計測中");
                 setGauge(0);
                 const { ping, jitter } = await measureLatency();
@@ -847,7 +1071,8 @@
                 // Download
                 setPhase("下り計測中");
                 setGauge(0, "var(--down)");
-                const down = await measureDownload();
+                const dl = await measureDownload();
+                const down = dl.speed;
                 if (down === null || isNaN(down)) {
                     rDown.innerHTML = '計測失敗';
                     results["下り"] = "計測失敗";
@@ -861,7 +1086,8 @@
                 // Upload
                 setPhase("上り計測中");
                 setGauge(0, "var(--up)");
-                const up = await measureUpload();
+                const ul = await measureUpload();
+                const up = ul.speed;
                 if (up === null || isNaN(up)) {
                     rUp.innerHTML = '計測失敗';
                     results["上り"] = "計測失敗";
@@ -875,6 +1101,18 @@
                 setPhase("計測完了");
                 // Rest the gauge on the download figure (if we have one).
                 if (down !== null && !isNaN(down)) { setUnit("Mbps"); setLive(down); setGauge(down, "var(--down)"); }
+
+                // Evaluation (only if at least one throughput measurement succeeded).
+                if ((down != null && !isNaN(down)) || (up != null && !isNaN(up))) {
+                    const bloat = bufferbloat(ping, dl.loaded, ul.loaded);
+                    renderEvaluation({
+                        down: (down == null || isNaN(down)) ? null : down,
+                        up: (up == null || isNaN(up)) ? null : up,
+                        ping: ping, jitter: jitter,
+                        idlePing: ping, loadedDown: dl.loaded, loadedUp: ul.loaded, bloat: bloat
+                    });
+                }
+
                 copyBtn.disabled = false;
                 toast("計測が完了しました");
             } catch (e) {
@@ -890,7 +1128,8 @@
         }
 
         function copyResults() {
-            const order = ["下り", "上り", "Ping", "ジッター", "接続状態", "グローバルIP",
+            const order = ["総合評価", "下り", "上り", "Ping", "ジッター", "バッファブロート",
+                "用途別適性", "接続状態", "グローバルIP",
                 "プロバイダ(AS)", "接続元エリア", "接続先データセンター",
                 "回線種別(推定)", "推定帯域"];
             const lines = ["■ インターネット速度計測結果", "計測日時: " + new Date().toLocaleString()];

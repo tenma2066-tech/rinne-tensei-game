@@ -341,7 +341,7 @@
                 <div class="gauge-center">
                     <div class="gauge-phase" id="phase">待機中</div>
                     <div class="gauge-value" id="liveValue">0.0</div>
-                    <div class="gauge-unit">Mbps</div>
+                    <div class="gauge-unit" id="gaugeUnit">Mbps</div>
                 </div>
             </div>
 
@@ -378,8 +378,9 @@
                 <!-- filled by JS -->
             </div>
             <p class="note">
-                実測には <a href="https://speed.cloudflare.com/" target="_blank" rel="noopener">Cloudflare</a> の計測用エンドポイントを利用しています。
-                測定値は回線状況・端末・時間帯により変動します。
+                速度の実測には <a href="https://speed.cloudflare.com/" target="_blank" rel="noopener">Cloudflare</a>、
+                IP・回線情報の取得には Cloudflare / ipwho.is / ipapi.co を利用しています（取得できたものから順に表示）。
+                測定値は回線状況・端末・時間帯により変動します。1回の計測で数十MB程度の通信が発生します。
             </p>
         </div>
     </div>
@@ -401,7 +402,10 @@
         const infoGrid = $("infoGrid");
         const toastEl = $("toast");
 
+        const unitEl = $("gaugeUnit");
         const rDown = $("rDown"), rUp = $("rUp"), rPing = $("rPing"), rJit = $("rJit");
+
+        function setUnit(u) { unitEl.textContent = u; }
 
         // Gauge geometry: 270deg arc, circumference of r=88 is ~552.92, arc length = 3/4 = ~414.69
         const CIRC = 2 * Math.PI * 88;
@@ -515,6 +519,9 @@
                     row("推定RTT", conn.rtt + " ms");
                 }
                 row("データセーバー", conn.saveData ? "ON" : "OFF");
+            } else {
+                // Safari / iOS do not expose the Network Information API.
+                row("端末の回線情報", "この端末では非対応");
             }
 
             row("ブラウザ", browserName());
@@ -525,70 +532,145 @@
             return { ipCell, ispCell, locCell, coloCell, protoCell };
         }
 
-        async function loadMeta(cells) {
+        // Fetch JSON with a timeout so a blocked/slow provider can't hang the chain.
+        async function fetchJSON(url, timeoutMs = 6000) {
+            const ctrl = new AbortController();
+            const t = setTimeout(() => ctrl.abort(), timeoutMs);
             try {
-                const resp = await fetch(META_URL + "?_=" + Date.now(), { cache: "no-store" });
-                const m = await resp.json();
-                const ip = m.clientIp || "-";
-                cells.ipCell.textContent = ip;
-                results["グローバルIP"] = ip;
-
-                const isp = [m.asn ? ("AS" + m.asn) : null, m.asOrganization].filter(Boolean).join(" ");
-                cells.ispCell.textContent = isp || "-";
-                results["プロバイダ(AS)"] = isp || "-";
-
-                const loc = [m.city, m.region, m.country].filter(Boolean).join(", ");
-                cells.locCell.textContent = loc || "-";
-                results["接続元エリア"] = loc || "-";
-
-                cells.coloCell.textContent = m.colo || "-";
-                results["接続先データセンター"] = m.colo || "-";
-
-                cells.protoCell.textContent = m.httpProtocol || "-";
-            } catch (e) {
-                cells.ipCell.textContent = "取得失敗";
-                cells.ispCell.textContent = "取得失敗";
-                cells.locCell.textContent = "取得失敗";
-                cells.coloCell.textContent = "取得失敗";
-                cells.protoCell.textContent = "-";
+                const r = await fetch(url, { cache: "no-store", signal: ctrl.signal, mode: "cors" });
+                if (!r.ok) throw new Error("HTTP " + r.status);
+                return await r.json();
+            } finally {
+                clearTimeout(t);
             }
         }
 
+        // Try several CORS-enabled providers in turn. Cloudflare's /meta is best for the
+        // data-center (colo) and HTTP protocol, but it can be CORS-blocked cross-origin and
+        // navigator.connection is missing on iOS Safari — so IP / ISP / area fall back to
+        // independent geo-IP services, and each field is filled the moment any source has it.
+        async function loadMeta(cells) {
+            const data = { ip: null, isp: null, area: null, colo: null, proto: null };
+
+            const need = () => !data.ip || !data.isp || !data.area;
+
+            // 1) Cloudflare meta (adds colo + protocol)
+            try {
+                const m = await fetchJSON(META_URL + "?_=" + Date.now());
+                if (m.clientIp) data.ip = m.clientIp;
+                const isp = [m.asn ? ("AS" + m.asn) : null, m.asOrganization].filter(Boolean).join(" ");
+                if (isp) data.isp = isp;
+                const area = [m.city, m.region, m.country].filter(Boolean).join(", ");
+                if (area) data.area = area;
+                if (m.colo) data.colo = m.colo;
+                if (m.httpProtocol) data.proto = m.httpProtocol;
+            } catch (e) { /* fall through */ }
+
+            // 2) ipwho.is (IP + ISP/ASN + city/region/country)
+            if (need()) {
+                try {
+                    const w = await fetchJSON("https://ipwho.is/");
+                    if (w && w.success !== false) {
+                        if (!data.ip) data.ip = w.ip;
+                        if (!data.isp && w.connection) {
+                            const c = w.connection;
+                            data.isp = [c.asn ? ("AS" + c.asn) : null, c.isp || c.org].filter(Boolean).join(" ") || null;
+                        }
+                        if (!data.area) data.area = [w.city, w.region, w.country].filter(Boolean).join(", ") || null;
+                    }
+                } catch (e) { /* fall through */ }
+            }
+
+            // 3) ipapi.co
+            if (need()) {
+                try {
+                    const a = await fetchJSON("https://ipapi.co/json/");
+                    if (a && !a.error) {
+                        if (!data.ip) data.ip = a.ip;
+                        if (!data.isp) data.isp = [a.asn || null, a.org].filter(Boolean).join(" ") || null;
+                        if (!data.area) data.area = [a.city, a.region, a.country_name].filter(Boolean).join(", ") || null;
+                    }
+                } catch (e) { /* fall through */ }
+            }
+
+            // 4) ipify (IP only, very reliable)
+            if (!data.ip) {
+                try {
+                    const p = await fetchJSON("https://api.ipify.org?format=json");
+                    if (p && p.ip) data.ip = p.ip;
+                } catch (e) { /* give up on IP */ }
+            }
+
+            const fill = (cell, val, key, cfOnly) => {
+                const text = val || (cfOnly ? "–" : "取得失敗");
+                cell.textContent = text;
+                if (val && key) results[key] = val;
+            };
+            fill(cells.ipCell, data.ip, "グローバルIP");
+            fill(cells.ispCell, data.isp, "プロバイダ(AS)");
+            fill(cells.locCell, data.area, "接続元エリア");
+            fill(cells.coloCell, data.colo, "接続先データセンター", true);
+            fill(cells.protoCell, data.proto, null, true);
+        }
+
         // ---------- Latency (ping / jitter) ----------
-        async function measureLatency(samples = 12) {
+        async function measureLatency(samples = 15) {
+            setUnit("ms");
+            // Warm up the TLS/TCP connection so it is not counted as latency.
+            try { await fetch(DOWN_URL + "?bytes=0&_=" + Math.random(), { cache: "no-store" }); } catch (e) {}
+
             const times = [];
             for (let i = 0; i < samples; i++) {
                 const t0 = performance.now();
                 try {
-                    await fetch(DOWN_URL + "?bytes=0&_=" + Math.random(), { cache: "no-store" });
+                    const r = await fetch(DOWN_URL + "?bytes=0&_=" + Math.random(), { cache: "no-store" });
+                    // Drain so the request fully completes (keeps timing consistent).
+                    if (r.body) { const rd = r.body.getReader(); while (!(await rd.read()).done) {} }
                 } catch (e) {
                     continue;
                 }
                 const dt = performance.now() - t0;
                 times.push(dt);
-                setPhase("Ping 計測中");
                 liveEl.textContent = dt.toFixed(0);
             }
             if (!times.length) return { ping: null, jitter: null };
-            // discard the slowest sample (first-connection overhead)
-            times.sort((a, b) => a - b);
-            const trimmed = times.slice(0, Math.max(1, times.length - 2));
-            const ping = trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
+
+            // Jitter = mean absolute difference between consecutive samples (RFC-style),
+            // computed on the time-ordered series before trimming outliers for the ping value.
             let jitter = 0;
-            for (let i = 1; i < trimmed.length; i++) jitter += Math.abs(trimmed[i] - trimmed[i - 1]);
-            jitter = trimmed.length > 1 ? jitter / (trimmed.length - 1) : 0;
+            for (let i = 1; i < times.length; i++) jitter += Math.abs(times[i] - times[i - 1]);
+            jitter = times.length > 1 ? jitter / (times.length - 1) : 0;
+
+            // Ping = median of the samples (robust against occasional spikes).
+            const sorted = times.slice().sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            const ping = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+
             return { ping, jitter };
         }
 
         // ---------- Download ----------
-        async function measureDownload(durationMs = 9000, streams = 4, chunkBytes = 25000000) {
+        async function measureDownload(durationMs = 10000, streams = 5, chunkBytes = 100000000) {
             let totalBytes = 0;
             let running = true;
+            let ok = false;            // did any bytes arrive at all?
             const controllers = [];
             const startAt = performance.now();
             let measureStart = null;
             let measuredBytes = 0;
-            const WARMUP_MS = 1500;
+            const WARMUP_MS = 2000;    // discard TCP slow-start ramp-up
+
+            function account(len) {
+                const now = performance.now();
+                ok = true;
+                totalBytes += len;
+                if (measureStart === null && (now - startAt) >= WARMUP_MS) {
+                    measureStart = now;
+                    measuredBytes = 0;
+                } else if (measureStart !== null) {
+                    measuredBytes += len;
+                }
+            }
 
             async function streamLoop() {
                 while (running) {
@@ -597,18 +679,21 @@
                     try {
                         const resp = await fetch(DOWN_URL + "?bytes=" + chunkBytes + "&_=" + Math.random(),
                             { cache: "no-store", signal: ctrl.signal });
-                        const reader = resp.body.getReader();
-                        while (running) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
-                            const now = performance.now();
-                            totalBytes += value.length;
-                            if (measureStart === null && (now - startAt) >= WARMUP_MS) {
-                                measureStart = now;
-                                measuredBytes = 0;
-                            } else if (measureStart !== null) {
-                                measuredBytes += value.length;
+                        if (!resp.ok) { await new Promise(r => setTimeout(r, 200)); continue; }
+                        if (resp.body && resp.body.getReader) {
+                            const reader = resp.body.getReader();
+                            while (running) {
+                                const { done, value } = await reader.read();
+                                if (done) break;
+                                account(value.length);
                             }
+                        } else {
+                            // Browsers without streaming bodies: time discrete smaller chunks.
+                            ctrl.abort();
+                            const t0 = performance.now();
+                            const buf = await fetch(DOWN_URL + "?bytes=5000000&_=" + Math.random(),
+                                { cache: "no-store" }).then(r => r.arrayBuffer());
+                            if (performance.now() - t0 > 0) account(buf.byteLength);
                         }
                     } catch (e) {
                         if (!running) break;
@@ -616,6 +701,7 @@
                 }
             }
 
+            setUnit("Mbps");
             const loops = [];
             for (let i = 0; i < streams; i++) loops.push(streamLoop());
 
@@ -637,19 +723,18 @@
             clearInterval(timer);
             await Promise.allSettled(loops);
 
+            if (!ok) return null;   // nothing downloaded — treat as failure
             const end = performance.now();
             const base = measureStart || startAt;
             const bytes = measureStart ? measuredBytes : totalBytes;
             const sec = (end - base) / 1000;
-            const mbps = sec > 0 ? (bytes * 8) / sec / 1e6 : 0;
-            return mbps;
+            return sec > 0 ? (bytes * 8) / sec / 1e6 : null;
         }
 
         // ---------- Upload ----------
-        function uploadOnce(bytes, onProgress, signalAbort) {
+        function uploadOnce(payload, onProgress, xhrs) {
             return new Promise((resolve) => {
                 const xhr = new XMLHttpRequest();
-                const payload = new Uint8Array(bytes);
                 let last = 0;
                 xhr.open("POST", UP_URL + "?_=" + Math.random(), true);
                 xhr.upload.onprogress = (e) => {
@@ -658,7 +743,7 @@
                 xhr.onload = () => resolve(true);
                 xhr.onerror = () => resolve(false);
                 xhr.onabort = () => resolve(false);
-                signalAbort.list.push(xhr);
+                xhrs.push(xhr);
                 try { xhr.send(payload); } catch (e) { resolve(false); }
             });
         }
@@ -667,13 +752,17 @@
             let running = true;
             let totalSent = 0;
             let measuredSent = 0;
+            let ok = false;
             const startAt = performance.now();
             let measureStart = null;
-            const WARMUP_MS = 1500;
-            const signalAbort = { list: [] };
+            const WARMUP_MS = 2000;
+            const xhrs = [];
+            // Reuse one buffer for every request to avoid repeated multi-MB allocations.
+            const payload = new Uint8Array(chunkBytes);
 
             function onProgress(delta) {
                 const now = performance.now();
+                ok = true;
                 totalSent += delta;
                 if (measureStart === null && (now - startAt) >= WARMUP_MS) {
                     measureStart = now;
@@ -685,10 +774,11 @@
 
             async function loop() {
                 while (running) {
-                    await uploadOnce(chunkBytes, onProgress, signalAbort);
+                    await uploadOnce(payload, onProgress, xhrs);
                 }
             }
 
+            setUnit("Mbps");
             const loops = [];
             for (let i = 0; i < streams; i++) loops.push(loop());
 
@@ -706,16 +796,16 @@
 
             await new Promise((r) => setTimeout(r, durationMs));
             running = false;
-            signalAbort.list.forEach((x) => { try { x.abort(); } catch (e) {} });
+            xhrs.forEach((x) => { try { x.abort(); } catch (e) {} });
             clearInterval(timer);
             await Promise.allSettled(loops);
 
+            if (!ok) return null;   // upload never progressed — treat as failure
             const end = performance.now();
             const base = measureStart || startAt;
             const bytes = measureStart ? measuredSent : totalSent;
             const sec = (end - base) / 1000;
-            const mbps = sec > 0 ? (bytes * 8) / sec / 1e6 : 0;
-            return mbps;
+            return sec > 0 ? (bytes * 8) / sec / 1e6 : null;
         }
 
         // ---------- Orchestration ----------
@@ -752,24 +842,33 @@
                 setPhase("下り計測中");
                 setGauge(0, "var(--down)");
                 const down = await measureDownload();
-                setLive(down);
-                setGauge(down, "var(--down)");
-                rDown.innerHTML = fmt(down, down >= 100 ? 0 : 1) + ' <small>Mbps</small>';
-                results["下り"] = fmt(down, 1) + " Mbps";
+                if (down === null || isNaN(down)) {
+                    rDown.innerHTML = '計測失敗';
+                    results["下り"] = "計測失敗";
+                } else {
+                    setLive(down);
+                    setGauge(down, "var(--down)");
+                    rDown.innerHTML = fmt(down, down >= 100 ? 0 : 1) + ' <small>Mbps</small>';
+                    results["下り"] = fmt(down, 1) + " Mbps";
+                }
 
                 // Upload
                 setPhase("上り計測中");
                 setGauge(0, "var(--up)");
                 const up = await measureUpload();
-                setLive(up);
-                setGauge(up, "var(--up)");
-                rUp.innerHTML = fmt(up, up >= 100 ? 0 : 1) + ' <small>Mbps</small>';
-                results["上り"] = fmt(up, 1) + " Mbps";
+                if (up === null || isNaN(up)) {
+                    rUp.innerHTML = '計測失敗';
+                    results["上り"] = "計測失敗";
+                } else {
+                    setLive(up);
+                    setGauge(up, "var(--up)");
+                    rUp.innerHTML = fmt(up, up >= 100 ? 0 : 1) + ' <small>Mbps</small>';
+                    results["上り"] = fmt(up, 1) + " Mbps";
+                }
 
                 setPhase("計測完了");
-                // Show download as the resting gauge value
-                setLive(down);
-                setGauge(down, "var(--down)");
+                // Rest the gauge on the download figure (if we have one).
+                if (down !== null && !isNaN(down)) { setUnit("Mbps"); setLive(down); setGauge(down, "var(--down)"); }
                 copyBtn.disabled = false;
                 toast("計測が完了しました");
             } catch (e) {

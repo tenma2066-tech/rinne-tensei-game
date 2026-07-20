@@ -4,9 +4,38 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>インターネット速度計測 | 回線スピードテスト</title>
-    <meta name="description" content="使っているインターネット接続の情報と、上り・下りの通信速度、Ping、ジッターをブラウザだけで計測できる無料スピードテスト。インストール不要。">
+    <meta name="description" content="使っているインターネット接続の情報と、上り・下りの通信速度、Ping、ジッター、バッファブロートをブラウザだけで計測できる無料スピードテスト。回線評価つき、インストール不要。">
     <meta name="theme-color" content="#0b1220">
     <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://tenma2066-tech.github.io/rinne-tensei-game/speedtest/">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="速度計測">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="ja_JP">
+    <meta property="og:url" content="https://tenma2066-tech.github.io/rinne-tensei-game/speedtest/">
+    <meta property="og:title" content="インターネット速度計測 | 回線スピードテスト">
+    <meta property="og:description" content="上り・下り速度、Ping、ジッター、バッファブロートを計測し、回線をS〜Dで評価する無料スピードテスト。">
+    <meta property="og:image" content="https://tenma2066-tech.github.io/rinne-tensei-game/speedtest/icon-512.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="インターネット速度計測 | 回線スピードテスト">
+    <meta name="twitter:description" content="上り・下り速度、Ping、ジッター、バッファブロートを計測し、回線をS〜Dで評価する無料スピードテスト。">
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "インターネット速度計測",
+        "url": "https://tenma2066-tech.github.io/rinne-tensei-game/speedtest/",
+        "description": "上り・下りの通信速度、Ping、ジッター、バッファブロートを計測し、回線を評価する無料スピードテスト。",
+        "applicationCategory": "UtilitiesApplication",
+        "operatingSystem": "Web Browser",
+        "inLanguage": "ja",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "JPY" }
+    }
+    </script>
     <style>
         :root {
             --bg: #0b1220;
@@ -393,6 +422,128 @@
         .v-good { color: #4ade80; background: rgba(74, 222, 128, 0.12); }
         .v-ok   { color: #7dd3fc; background: rgba(56, 189, 248, 0.12); }
         .v-poor { color: #fbbf24; background: rgba(251, 191, 36, 0.12); }
+
+        /* ---- Score breakdown ---- */
+        .subscores {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 10px 20px;
+            margin-bottom: 18px;
+        }
+        .subscore { font-size: 0.8rem; }
+        .subscore .row1 {
+            display: flex;
+            justify-content: space-between;
+            color: var(--muted);
+            margin-bottom: 4px;
+        }
+        .subscore .row1 .sv { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+        .subscore .bar {
+            height: 7px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+        }
+        .subscore .bar > i {
+            display: block;
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #f87171, #fbbf24 40%, #4ade80 75%, #22d3ee);
+            background-size: 100% 100%;
+            transition: width 0.5s ease;
+        }
+
+        /* ---- Warning banner (file:// / offline) ---- */
+        .banner {
+            background: rgba(251, 191, 36, 0.1);
+            border: 1px solid rgba(251, 191, 36, 0.45);
+            color: #fde68a;
+            border-radius: 14px;
+            padding: 14px 16px;
+            font-size: 0.88rem;
+            margin-bottom: 18px;
+            line-height: 1.7;
+        }
+        .banner a { color: #fbbf24; font-weight: 700; word-break: break-all; }
+
+        /* ---- Phase progress ---- */
+        .progress {
+            width: min(320px, 82vw);
+            height: 5px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            margin-top: 14px;
+            overflow: hidden;
+            visibility: hidden;
+        }
+        .progress > i {
+            display: block;
+            height: 100%;
+            width: 0%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #4ade80, #38bdf8);
+            transition: width 0.25s linear;
+        }
+        .progress.on { visibility: visible; }
+
+        /* ---- Options (data saver) ---- */
+        .options {
+            margin-top: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.84rem;
+            color: var(--muted);
+            user-select: none;
+        }
+        .options input[type="checkbox"] {
+            width: 17px; height: 17px;
+            accent-color: #4ade80;
+            cursor: pointer;
+        }
+        .options label { cursor: pointer; }
+
+        .start-btn.stop {
+            background: linear-gradient(135deg, #f87171, #fbbf24);
+            box-shadow: 0 10px 24px rgba(248, 113, 113, 0.3);
+        }
+
+        /* ---- History ---- */
+        .history-list { display: flex; flex-direction: column; }
+        .history-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 2px;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+            font-size: 0.84rem;
+            font-variant-numeric: tabular-nums;
+        }
+        .history-item:last-child { border-bottom: none; }
+        .history-item .hg {
+            flex-shrink: 0;
+            width: 26px; height: 26px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 0.9rem; color: #041018;
+        }
+        .history-item .hd { color: var(--muted); min-width: 7.5em; }
+        .history-item .hv { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+        .history-item .hv b { font-weight: 700; }
+        .delta-up { color: #4ade80; }
+        .delta-down { color: #f87171; }
+        .history-empty { color: var(--muted); font-size: 0.85rem; }
+
+        /* ---- A11y ---- */
+        .visually-hidden {
+            position: absolute;
+            width: 1px; height: 1px;
+            margin: -1px; padding: 0;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            white-space: nowrap;
+            border: 0;
+        }
     </style>
 </head>
 <body>
@@ -401,6 +552,11 @@
             <h1>インターネット速度計測</h1>
             <p>回線の接続情報と、上り・下りの通信速度をブラウザだけで計測します</p>
         </header>
+
+        <div class="banner" id="fileBanner" hidden>
+            ⚠️ このページはローカルファイルとして開かれています。ブラウザの制限により計測は動作しません。<br>
+            公開ページ <a href="https://tenma2066-tech.github.io/rinne-tensei-game/speedtest/">https://tenma2066-tech.github.io/rinne-tensei-game/speedtest/</a> を開いてご利用ください。
+        </div>
 
         <div class="card gauge-wrap">
             <div class="gauge">
@@ -417,7 +573,14 @@
                 </div>
             </div>
 
+            <div class="progress" id="phaseProgress"><i id="phaseProgressFill"></i></div>
+
             <button class="start-btn" id="startBtn">計測開始</button>
+
+            <div class="options">
+                <input type="checkbox" id="saverChk">
+                <label for="saverChk">データ節約モード（計測を短く・通信量を抑える）</label>
+            </div>
 
             <div class="results">
                 <div class="tile down">
@@ -440,8 +603,10 @@
 
             <div class="actions">
                 <button class="ghost-btn" id="copyBtn" disabled>結果をコピー</button>
+                <button class="ghost-btn" id="shareBtn" disabled>共有</button>
                 <button class="ghost-btn" id="retestBtn" disabled>もう一度計測</button>
             </div>
+            <div class="visually-hidden" aria-live="polite" id="srStatus"></div>
         </div>
 
         <div class="card" id="evalCard" hidden>
@@ -453,6 +618,7 @@
                     <div class="comment" id="gradeComment">計測すると評価が表示されます。</div>
                 </div>
             </div>
+            <div class="subscores" id="subscores"></div>
             <div class="bloat-row" id="bloatRow">
                 <div class="item"><span class="k">アイドル時Ping</span><span class="v" id="bIdle">–</span></div>
                 <div class="item"><span class="k">負荷時Ping(下り)</span><span class="v" id="bDown">–</span></div>
@@ -460,6 +626,14 @@
                 <div class="item"><span class="k">バッファブロート</span><span class="v" id="bBloat">–</span></div>
             </div>
             <div class="use-list" id="useList"></div>
+        </div>
+
+        <div class="card" id="historyCard" hidden>
+            <div class="section-title">計測履歴（この端末のみ）</div>
+            <div class="history-list" id="historyList"></div>
+            <div class="actions">
+                <button class="ghost-btn" id="clearHistBtn">履歴を消去</button>
+            </div>
         </div>
 
         <div class="card">
@@ -470,7 +644,9 @@
             <p class="note">
                 速度の実測には <a href="https://speed.cloudflare.com/" target="_blank" rel="noopener">Cloudflare</a>、
                 IP・回線情報の取得には Cloudflare / ipwho.is / ipapi.co を利用しています（取得できたものから順に表示）。
-                測定値は回線状況・端末・時間帯により変動します。1回の計測で数十MB程度の通信が発生します。
+                測定値は回線状況・端末・時間帯により変動します。<br>
+                通信量の目安: 通常モードでは回線速度に応じて増え、高速回線では数百MB〜1GB程度に達することがあります。
+                モバイル回線など通信量が気になる場合は「データ節約モード」をお使いください（速度が安定した時点で自動的に計測を打ち切ります）。
             </p>
         </div>
     </div>
@@ -497,8 +673,59 @@
         const evalCard = $("evalCard"), gradeBox = $("gradeBox"), gradeRank = $("gradeRank"),
               gradeComment = $("gradeComment"), useList = $("useList");
         const bIdle = $("bIdle"), bDown = $("bDown"), bUp = $("bUp"), bBloat = $("bBloat");
+        const subscoresEl = $("subscores"), shareBtn = $("shareBtn"), srStatus = $("srStatus");
+        const saverChk = $("saverChk"), fileBanner = $("fileBanner");
+        const progressEl = $("phaseProgress"), progressFill = $("phaseProgressFill");
+        const historyCard = $("historyCard"), historyList = $("historyList"), clearHistBtn = $("clearHistBtn");
 
         function setUnit(u) { unitEl.textContent = u; }
+
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+        // ---- Phase progress bar (approximate per-phase countdown) ----
+        let progTimer = null;
+        function startProgress(durationMs) {
+            stopProgress();
+            const t0 = performance.now();
+            progressEl.classList.add("on");
+            progressFill.style.width = "0%";
+            progTimer = setInterval(() => {
+                const p = Math.min(100, ((performance.now() - t0) / durationMs) * 100);
+                progressFill.style.width = p + "%";
+            }, 120);
+        }
+        function stopProgress() {
+            if (progTimer) { clearInterval(progTimer); progTimer = null; }
+            progressEl.classList.remove("on");
+            progressFill.style.width = "0%";
+        }
+
+        // ---- Device / mode profile ----
+        // Keeps memory use and mobile data in check: low-memory devices get smaller
+        // buffers, and data-saver mode shortens the test and lowers concurrency.
+        function testProfile() {
+            const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            const lowMem = (navigator.deviceMemory && navigator.deviceMemory <= 4) ||
+                           /iPhone|iPad|iPod/.test(navigator.userAgent);
+            const saver = saverChk.checked;
+            return {
+                saver: saver,
+                latencySamples: saver ? 10 : 15,
+                down: {
+                    durationMs: saver ? 6000 : 11000,
+                    minMeasureMs: saver ? 2000 : 3000,
+                    streams: saver ? 3 : 5,
+                    chunkStart: saver ? 5000000 : 10000000,
+                    chunkMax: saver ? 10000000 : (lowMem ? 25000000 : 50000000)
+                },
+                up: {
+                    durationMs: saver ? 6000 : 10000,
+                    minMeasureMs: saver ? 2000 : 3000,
+                    streams: saver ? 2 : 3,
+                    chunkBytes: saver ? 8000000 : (lowMem ? 12000000 : 20000000)
+                }
+            };
+        }
 
         // Gauge geometry: 270deg arc, circumference of r=88 is ~552.92, arc length = 3/4 = ~414.69
         const CIRC = 2 * Math.PI * 88;
@@ -529,7 +756,10 @@
             liveEl.textContent = mbps >= 100 ? mbps.toFixed(0) : mbps.toFixed(1);
         }
 
-        function setPhase(txt) { phaseEl.textContent = txt; }
+        function setPhase(txt) {
+            phaseEl.textContent = txt;
+            srStatus.textContent = txt;   // announce to screen readers
+        }
 
         function toast(msg) {
             toastEl.textContent = msg;
@@ -716,12 +946,15 @@
 
         // A latency probe that runs concurrently with a load test to measure "loaded"
         // latency (the extra delay a packet sees while the link is saturated — bufferbloat).
+        // Download keeps one origin connection slot free for this probe so that on
+        // HTTP/1.1 the sample measures the network, not the browser's request queue.
+        // stop() returns null unless enough samples were gathered to be meaningful.
         function startLatencyProbe() {
             const samples = [];
             let active = true;
             (async function run() {
                 // Let the load ramp up before sampling under-load latency.
-                await new Promise((r) => setTimeout(r, 2200));
+                await wait(2200);
                 while (active) {
                     const t0 = performance.now();
                     try {
@@ -729,20 +962,46 @@
                         if (r.body) { const rd = r.body.getReader(); while (!(await rd.read()).done) {} }
                         if (active) samples.push(performance.now() - t0);
                     } catch (e) {}
-                    await new Promise((r) => setTimeout(r, 250));
+                    await wait(300);
                 }
             })();
-            return { stop() { active = false; return median(samples); } };
+            return { stop() { active = false; return samples.length >= 3 ? median(samples) : null; } };
+        }
+
+        // Wait until durationMs elapses, the user cancels, or (after minMs) the
+        // throughput has stabilized — whichever comes first. Early exit on a stable
+        // rate keeps data usage down without hurting accuracy.
+        async function measureWait(durationMs, minMs, token, isStable) {
+            const t0 = performance.now();
+            for (;;) {
+                const el = performance.now() - t0;
+                if (el >= durationMs) return;
+                if (token && token.cancelled) return;
+                if (isStable && el >= minMs && isStable()) return;
+                await wait(200);
+            }
+        }
+
+        // Rate is "stable" when ~3s of recent interval samples vary little around
+        // their mean — at that point more measuring only spends more data.
+        function isRateStable(rates) {
+            if (rates.length < 20) return false;
+            const win = rates.slice(-20);
+            const mean = win.reduce((a, b) => a + b, 0) / win.length;
+            if (mean <= 0) return false;
+            const sd = Math.sqrt(win.reduce((a, b) => a + (b - mean) * (b - mean), 0) / win.length);
+            return sd / mean < 0.08;
         }
 
         // ---------- Latency (ping / jitter) ----------
-        async function measureLatency(samples = 15) {
+        async function measureLatency(samples, token) {
             setUnit("ms");
             // Warm up the TLS/TCP connection so it is not counted as latency.
             try { await fetch(DOWN_URL + "?bytes=0&_=" + Math.random(), { cache: "no-store" }); } catch (e) {}
 
             const times = [];
             for (let i = 0; i < samples; i++) {
+                if (token && token.cancelled) break;
                 const t0 = performance.now();
                 try {
                     const r = await fetch(DOWN_URL + "?bytes=0&_=" + Math.random(), { cache: "no-store" });
@@ -776,7 +1035,8 @@
         // Safari / iOS handle fetch response-body streaming inconsistently and reject very
         // large `bytes` values, which made the download phase fail there; XHR onprogress is
         // universally supported (and mirrors how the upload phase already works).
-        async function measureDownload(durationMs = 11000, streams = 6) {
+        async function measureDownload(cfg, token) {
+            const durationMs = cfg.durationMs, streams = cfg.streams;
             let totalBytes = 0;
             let running = true;
             let ok = false;            // did any bytes arrive at all?
@@ -787,8 +1047,11 @@
             const slots = [];          // one in-flight XHR per stream (bounds memory)
             // Adaptive chunk size: start small, grow on fast links so request churn does
             // not cap the measured throughput. Capped so buffered responses stay bounded.
-            let chunkBytes = 10000000;
-            const MAX_CHUNK = 50000000;
+            let chunkBytes = cfg.chunkStart;
+            const MAX_CHUNK = cfg.chunkMax;
+            // Interval speed samples for the stability check (fed by the 150ms timer).
+            const rates = [];
+            let lastTickBytes = 0, lastTickAt = startAt;
 
             function account(len) {
                 const now = performance.now();
@@ -853,9 +1116,17 @@
                     setLive(mbps);
                     setGauge(mbps, "var(--down)");
                 }
+                // Interval rate sample for the stability check (post-warmup only).
+                if (measureStart !== null) {
+                    const dt = (now - lastTickAt) / 1000;
+                    if (dt > 0.05) rates.push(((measuredBytes - lastTickBytes) * 8) / dt / 1e6);
+                    lastTickBytes = measuredBytes;
+                    lastTickAt = now;
+                    if (rates.length > 40) rates.shift();
+                }
             }, 150);
 
-            await new Promise((r) => setTimeout(r, durationMs));
+            await measureWait(durationMs, WARMUP_MS + cfg.minMeasureMs, token, () => isRateStable(rates));
             running = false;
             const loaded = probe.stop();
             slots.forEach((s) => { if (s.xhr) { try { s.xhr.abort(); } catch (e) {} } });
@@ -887,7 +1158,8 @@
             });
         }
 
-        async function measureUpload(durationMs = 10000, streams = 3, chunkBytes = 20000000) {
+        async function measureUpload(cfg, token) {
+            const durationMs = cfg.durationMs, streams = cfg.streams, chunkBytes = cfg.chunkBytes;
             let running = true;
             let totalSent = 0;
             let measuredSent = 0;
@@ -901,6 +1173,8 @@
             const xhrs = [];
             // Reuse one buffer for every request to avoid repeated multi-MB allocations.
             const payload = new Uint8Array(chunkBytes);
+            const rates = [];
+            let lastTickBytes = 0, lastTickAt = startAt;
 
             function onProgress(delta) {
                 const now = performance.now();
@@ -935,9 +1209,16 @@
                     setLive(mbps);
                     setGauge(mbps, "var(--up)");
                 }
+                if (measureStart !== null) {
+                    const dt = (now - lastTickAt) / 1000;
+                    if (dt > 0.05) rates.push(((measuredSent - lastTickBytes) * 8) / dt / 1e6);
+                    lastTickBytes = measuredSent;
+                    lastTickAt = now;
+                    if (rates.length > 40) rates.shift();
+                }
             }, 150);
 
-            await new Promise((r) => setTimeout(r, durationMs));
+            await measureWait(durationMs, WARMUP_MS + cfg.minMeasureMs, token, () => isRateStable(rates));
             running = false;
             const loaded = probe.stop();
             xhrs.forEach((x) => { try { x.abort(); } catch (e) {} });
@@ -992,11 +1273,18 @@
                 { emoji: "🌐", name: "Web閲覧・SNS", level: lvl(down >= 3, down >= 1) },
                 { emoji: "📺", name: "HD動画 (1080p)", level: lvl(down >= 8, down >= 5) },
                 { emoji: "🎬", name: "4K動画", level: lvl(down >= 35, down >= 25) },
-                { emoji: "📹", name: "ビデオ会議", level: lvl(down >= 5 && up >= 3 && ping <= 100, down >= 2 && up >= 1.5 && ping <= 200) },
-                { emoji: "🎮", name: "オンラインゲーム", level: lvl(ping <= 30 && jitter <= 10 && (bloat == null || bloat <= 60), ping <= 60 && jitter <= 25) },
+                { emoji: "📹", name: "ビデオ会議", level: lvl(down >= 5 && up >= 3 && ping <= 100 && jitter <= 30, down >= 2 && up >= 1.5 && ping <= 200) },
+                { emoji: "🎮", name: "オンラインゲーム", level: lvl(down >= 10 && ping <= 30 && jitter <= 10 && (bloat == null || bloat <= 60), down >= 3 && ping <= 60 && jitter <= 25) },
                 { emoji: "☁️", name: "大容量アップロード", level: lvl(up >= 50, up >= 10) }
             ];
-            return { grade, cls, rank, comment, score, cases };
+            const subs = [
+                { label: "下り", score: sDown, detail: fmt(down, down >= 100 ? 0 : 1) + " Mbps" },
+                { label: "上り", score: sUp, detail: fmt(up, up >= 100 ? 0 : 1) + " Mbps" },
+                { label: "Ping", score: sPing, detail: fmt(m.ping, 0) + " ms" },
+                { label: "ジッター", score: sJit, detail: fmt(m.jitter, 0) + " ms" }
+            ];
+            if (sBloat != null) subs.push({ label: "バッファブロート", score: sBloat, detail: "+" + fmt(bloat, 0) + " ms" });
+            return { grade, cls, rank, comment, score, cases, subs };
         }
 
         const VERDICT = { 2: ["◎", "快適", "v-good"], 1: ["○", "可能", "v-ok"], 0: ["△", "厳しい", "v-poor"] };
@@ -1013,6 +1301,18 @@
             gradeBox.className = "grade " + ev.cls;
             gradeRank.textContent = ev.rank;
             gradeComment.textContent = ev.comment;
+
+            // Per-metric score bars: shows *why* the grade is what it is.
+            subscoresEl.innerHTML = "";
+            ev.subs.forEach((s) => {
+                const el = document.createElement("div");
+                el.className = "subscore";
+                el.innerHTML = '<div class="row1"><span>' + s.label + '（' + s.detail + '）</span>' +
+                    '<span class="sv">' + Math.round(s.score) + '</span></div>' +
+                    '<div class="bar"><i style="width:0%"></i></div>';
+                subscoresEl.appendChild(el);
+                requestAnimationFrame(() => { el.querySelector("i").style.width = s.score + "%"; });
+            });
 
             bIdle.textContent = m.idlePing == null ? "–" : fmt(m.idlePing, 0) + " ms";
             bDown.textContent = m.loadedDown == null ? "–" : fmt(m.loadedDown, 0) + " ms";
@@ -1035,18 +1335,81 @@
             results["用途別適性"] = ev.cases.map((c) => c.name + ":" + VERDICT[c.level][1]).join(" / ");
 
             evalCard.hidden = false;
+            return ev;
+        }
+
+        // ---------- History (localStorage, this device only) ----------
+        const HIST_KEY = "speedtest_history_v1";
+
+        function loadHistory() {
+            try { return JSON.parse(localStorage.getItem(HIST_KEY)) || []; }
+            catch (e) { return []; }
+        }
+
+        function saveHistoryEntry(entry) {
+            try {
+                const h = loadHistory();
+                h.unshift(entry);
+                localStorage.setItem(HIST_KEY, JSON.stringify(h.slice(0, 10)));
+            } catch (e) { /* private mode etc. — history is best-effort */ }
+        }
+
+        function deltaHTML(cur, prev) {
+            if (prev == null || cur == null) return "";
+            const d = cur - prev;
+            if (Math.abs(d) < 0.05 * Math.max(prev, 0.001)) return "";   // <5% change: noise
+            const cls = d > 0 ? "delta-up" : "delta-down";
+            const arrow = d > 0 ? "▲" : "▼";
+            return ' <span class="' + cls + '">' + arrow + fmt(Math.abs(d), Math.abs(d) >= 100 ? 0 : 1) + '</span>';
+        }
+
+        function renderHistory() {
+            const h = loadHistory();
+            if (!h.length) { historyCard.hidden = true; return; }
+            historyList.innerHTML = "";
+            h.forEach((e, i) => {
+                const prev = h[i + 1] || null;
+                const d = new Date(e.t);
+                const dateStr = (d.getMonth() + 1) + "/" + d.getDate() + " " +
+                    String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+                const item = document.createElement("div");
+                item.className = "history-item";
+                item.innerHTML =
+                    '<span class="hg ' + (e.cls || "g-b") + '">' + (e.grade || "-") + '</span>' +
+                    '<span class="hd">' + dateStr + '</span>' +
+                    '<span class="hv">' +
+                    '<span>下り <b>' + fmt(e.down, e.down >= 100 ? 0 : 1) + '</b>' + deltaHTML(e.down, prev && prev.down) + '</span>' +
+                    '<span>上り <b>' + fmt(e.up, e.up >= 100 ? 0 : 1) + '</b>' + deltaHTML(e.up, prev && prev.up) + '</span>' +
+                    '<span>Ping <b>' + fmt(e.ping, 0) + '</b></span>' +
+                    '</span>';
+                historyList.appendChild(item);
+            });
+            historyCard.hidden = false;
+        }
+
+        function clearHistory() {
+            try { localStorage.removeItem(HIST_KEY); } catch (e) {}
+            renderHistory();
+            toast("履歴を消去しました");
         }
 
         // ---------- Orchestration ----------
         let busy = false;
+        let currentToken = null;
 
         async function runTest() {
             if (busy) return;
             busy = true;
-            startBtn.disabled = true;
+            const token = { cancelled: false };
+            currentToken = token;
+            const profile = testProfile();
+
             retestBtn.disabled = true;
             copyBtn.disabled = true;
-            startBtn.innerHTML = '<span class="spin"></span> 計測中 …';
+            shareBtn.disabled = true;
+            saverChk.disabled = true;
+            startBtn.classList.add("stop");
+            startBtn.textContent = "中止";
 
             rDown.innerHTML = '– <small>Mbps</small>';
             rUp.innerHTML = '– <small>Mbps</small>';
@@ -1062,40 +1425,64 @@
                 // Ping / Jitter (idle)
                 setPhase("Ping 計測中");
                 setGauge(0);
-                const { ping, jitter } = await measureLatency();
+                startProgress(profile.latencySamples * 350);
+                const { ping, jitter } = await measureLatency(profile.latencySamples, token);
                 rPing.innerHTML = fmt(ping, 0) + ' <small>ms</small>';
                 rJit.innerHTML = fmt(jitter, 0) + ' <small>ms</small>';
                 results["Ping"] = fmt(ping, 0) + " ms";
                 results["ジッター"] = fmt(jitter, 0) + " ms";
 
+                let down = null, up = null, dl = { loaded: null }, ul = { loaded: null };
+
                 // Download
-                setPhase("下り計測中");
-                setGauge(0, "var(--down)");
-                const dl = await measureDownload();
-                const down = dl.speed;
-                if (down === null || isNaN(down)) {
-                    rDown.innerHTML = '計測失敗';
-                    results["下り"] = "計測失敗";
-                } else {
-                    setLive(down);
-                    setGauge(down, "var(--down)");
-                    rDown.innerHTML = fmt(down, down >= 100 ? 0 : 1) + ' <small>Mbps</small>';
-                    results["下り"] = fmt(down, 1) + " Mbps";
+                if (!token.cancelled) {
+                    setPhase("下り計測中");
+                    setGauge(0, "var(--down)");
+                    startProgress(profile.down.durationMs);
+                    dl = await measureDownload(profile.down, token);
+                    down = dl.speed;
+                    if (!token.cancelled) {
+                        if (down === null || isNaN(down)) {
+                            rDown.innerHTML = '計測失敗';
+                            results["下り"] = "計測失敗";
+                        } else {
+                            setLive(down);
+                            setGauge(down, "var(--down)");
+                            rDown.innerHTML = fmt(down, down >= 100 ? 0 : 1) + ' <small>Mbps</small>';
+                            results["下り"] = fmt(down, 1) + " Mbps";
+                        }
+                    }
                 }
 
                 // Upload
-                setPhase("上り計測中");
-                setGauge(0, "var(--up)");
-                const ul = await measureUpload();
-                const up = ul.speed;
-                if (up === null || isNaN(up)) {
-                    rUp.innerHTML = '計測失敗';
-                    results["上り"] = "計測失敗";
-                } else {
-                    setLive(up);
-                    setGauge(up, "var(--up)");
-                    rUp.innerHTML = fmt(up, up >= 100 ? 0 : 1) + ' <small>Mbps</small>';
-                    results["上り"] = fmt(up, 1) + " Mbps";
+                if (!token.cancelled) {
+                    setPhase("上り計測中");
+                    setGauge(0, "var(--up)");
+                    startProgress(profile.up.durationMs);
+                    ul = await measureUpload(profile.up, token);
+                    up = ul.speed;
+                    if (!token.cancelled) {
+                        if (up === null || isNaN(up)) {
+                            rUp.innerHTML = '計測失敗';
+                            results["上り"] = "計測失敗";
+                        } else {
+                            setLive(up);
+                            setGauge(up, "var(--up)");
+                            rUp.innerHTML = fmt(up, up >= 100 ? 0 : 1) + ' <small>Mbps</small>';
+                            results["上り"] = fmt(up, 1) + " Mbps";
+                        }
+                    }
+                }
+
+                stopProgress();
+
+                if (token.cancelled) {
+                    setPhase("中止しました");
+                    setUnit("Mbps");
+                    setLive(0);
+                    setGauge(0);
+                    toast("計測を中止しました");
+                    return;
                 }
 
                 setPhase("計測完了");
@@ -1105,41 +1492,78 @@
                 // Evaluation (only if at least one throughput measurement succeeded).
                 if ((down != null && !isNaN(down)) || (up != null && !isNaN(up))) {
                     const bloat = bufferbloat(ping, dl.loaded, ul.loaded);
-                    renderEvaluation({
+                    const ev = renderEvaluation({
                         down: (down == null || isNaN(down)) ? null : down,
                         up: (up == null || isNaN(up)) ? null : up,
                         ping: ping, jitter: jitter,
                         idlePing: ping, loadedDown: dl.loaded, loadedUp: ul.loaded, bloat: bloat
                     });
+                    saveHistoryEntry({
+                        t: Date.now(),
+                        down: (down == null || isNaN(down)) ? null : Math.round(down * 10) / 10,
+                        up: (up == null || isNaN(up)) ? null : Math.round(up * 10) / 10,
+                        ping: ping == null ? null : Math.round(ping),
+                        jit: jitter == null ? null : Math.round(jitter),
+                        grade: ev.grade, cls: ev.cls
+                    });
+                    renderHistory();
                 }
 
                 copyBtn.disabled = false;
+                shareBtn.disabled = false;
                 toast("計測が完了しました");
             } catch (e) {
+                stopProgress();
                 setPhase("エラー");
                 toast("計測中にエラーが発生しました");
                 console.error(e);
             } finally {
+                stopProgress();
                 busy = false;
-                startBtn.disabled = false;
-                retestBtn.disabled = false;
+                currentToken = null;
+                startBtn.classList.remove("stop");
                 startBtn.textContent = "再計測";
+                retestBtn.disabled = false;
+                saverChk.disabled = false;
             }
         }
 
-        function copyResults() {
+        function onStartClick() {
+            if (busy) {
+                if (currentToken) currentToken.cancelled = true;
+                return;
+            }
+            runTest();
+        }
+
+        function buildResultText() {
             const order = ["総合評価", "下り", "上り", "Ping", "ジッター", "バッファブロート",
                 "用途別適性", "接続状態", "グローバルIP",
                 "プロバイダ(AS)", "接続元エリア", "接続先データセンター",
                 "回線種別(推定)", "推定帯域"];
             const lines = ["■ インターネット速度計測結果", "計測日時: " + new Date().toLocaleString()];
             order.forEach((k) => { if (results[k] !== undefined) lines.push(k + ": " + results[k]); });
-            const text = lines.join("\n");
+            return lines.join("\n");
+        }
+
+        function copyResults() {
+            const text = buildResultText();
             const done = () => toast("結果をコピーしました");
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
             } else {
                 fallbackCopy(text, done);
+            }
+        }
+
+        function shareResults() {
+            const text = buildResultText();
+            if (navigator.share) {
+                navigator.share({ title: "インターネット速度計測結果", text: text })
+                    .catch((e) => { if (e && e.name !== "AbortError") copyResults(); });
+            } else {
+                // No Web Share API (desktop browsers): fall back to copying.
+                copyResults();
             }
         }
 
@@ -1155,14 +1579,32 @@
         }
 
         // ---------- Init ----------
+        // Local files can't run the measurement (CORS / JS restrictions in viewers):
+        // tell the user where the working page lives instead of failing silently.
+        if (location.protocol === "file:") {
+            fileBanner.hidden = false;
+            startBtn.disabled = true;
+        }
+
+        // Pre-enable data saver when the platform says data is at a premium.
+        (function () {
+            const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            if (conn && (conn.saveData || /(^|-)2g|3g/.test(conn.effectiveType || ""))) {
+                saverChk.checked = true;
+            }
+        })();
+
         const cells = buildBaseInfo();
         loadMeta(cells);
+        renderHistory();
         window.addEventListener("online", () => { const c = buildBaseInfo(); loadMeta(c); });
         window.addEventListener("offline", () => buildBaseInfo());
 
-        startBtn.addEventListener("click", runTest);
+        startBtn.addEventListener("click", onStartClick);
         retestBtn.addEventListener("click", runTest);
         copyBtn.addEventListener("click", copyResults);
+        shareBtn.addEventListener("click", shareResults);
+        clearHistBtn.addEventListener("click", clearHistory);
     })();
     </script>
 </body>

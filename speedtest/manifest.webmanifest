@@ -1,0 +1,15 @@
+{
+  "name": "インターネット速度計測",
+  "short_name": "速度計測",
+  "description": "回線の接続情報と上り・下りの通信速度をブラウザだけで計測できるスピードテスト。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
+  "lang": "ja",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

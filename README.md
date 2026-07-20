@@ -7,6 +7,9 @@
 ## 中身
 
 - `index.html`: ゲーム本体。検索向けの title / description / OGP / JSON-LD を追加済み。
+- `speedtest/`: インターネット速度計測アプリ（下り・上り・Ping・ジッター・バッファブロート計測、回線評価つき）。
+  - 公開URL: https://tenma2066-tech.github.io/rinne-tensei-game/speedtest/
+  - 速度実測に speed.cloudflare.com、IP情報取得に Cloudflare / ipwho.is / ipapi.co を利用（無料枠のため、アクセスが増えた場合は自前の計測エンドポイント設置を検討）。
 - `robots.txt`: 検索エンジンのクロールを許可。
 - `sitemap.xml`: 公開URLを検索エンジンへ伝えるサイトマップ。
 
